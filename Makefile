@@ -61,7 +61,7 @@ endef
 
 define Package/$(PKG_NAME)/install
 	$(INSTALL_DIR) $(1)/usr/share/$(PKG_NAME)
-	$(SED) 's,# Write your upload script below...,exec /etc/$(PKG_NAME)/custom-script.sh,'    $(PKG_BUILD_DIR)/natter-hook.sh
+	$(SED) 's,# Write your upload script below...,exec /etc/$(PKG_NAME)/custom-script.sh "$$$$@",'    $(PKG_BUILD_DIR)/natter-hook.sh
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/natter-hook.sh $(1)/usr/share/$(PKG_NAME)/natter-hook.sh
 	$(INSTALL_DATA) $(PKG_BUILD_DIR)/natter.py $(1)/usr/share/$(PKG_NAME)/natter.py
 	$(INSTALL_DATA) $(PKG_BUILD_DIR)/natter-config.template.json $(1)/usr/share/$(PKG_NAME)/natter-config.template.json
