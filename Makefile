@@ -65,6 +65,15 @@ if [ "$$?" == "1" ]; then
 		commit firewall
 	EOF
 fi
+uci show luci | grep "name='Test Natter'" >/dev/null
+if [ "$$?" == "1" ]; then
+	section=$$(uci add luci command)
+	uci -q batch <<-EOF >/dev/null
+		set luci.$$section.name='Test Natter'
+		set luci.$$section.command='natter --check-nat 3456'
+		commit luci
+	EOF
+fi
 endef
 
 define Package/$(PKG_NAME)/prerm
