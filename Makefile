@@ -54,6 +54,17 @@ if [ ! -f /etc/$(PKG_NAME)/custom-script.sh ]; then
 	EOF
 	chmod 755 /etc/$(PKG_NAME)/custom-script.sh
 fi
+uci show firewall | grep "name='NatTypeTest'" >/dev/null
+if [ "$$?" == "1" ]; then
+	section=$$(uci add firewall rule)
+	uci -q batch <<-EOF >/dev/null
+		set firewall.$$section.name='NatTypeTest'
+		set firewall.$$section.src='wan'
+		set firewall.$$section.dest_port='3456'
+		set firewall.$$section.target='ACCEPT'
+		commit firewall
+	EOF
+fi
 endef
 
 define Package/$(PKG_NAME)/prerm
