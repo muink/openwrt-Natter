@@ -1,0 +1,8 @@
+#!/bin/sh
+#
+# Open Port under FullCone NAT (NAT 1)
+# Author: muink
+# Github: https://github.com/muink/openwrt-natter
+#
+
+python /usr/share/natter/natter.py "$@"
