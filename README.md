@@ -2,7 +2,8 @@ Natter on Openwrt
 =================
 
 ## Introduction
-This project is the software package of [Natter][] running on OpenWrt
+This project is the software package of [Natter][] running on OpenWrt  
+Recommended to use it with `luci-app-commands`
 
 ## Build
 
