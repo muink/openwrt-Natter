@@ -1,0 +1,86 @@
+#!/bin/sh /etc/rc.common
+# Copyright (C) 2022 muink
+#
+# depends bash coreutils-base64
+
+. /lib/functions.sh
+
+START=70
+STOP=90
+USE_PROCD=1
+# natter
+[ -x '/usr/sbin/nft' ] && FW='fw4' || FW='fw3'
+PROG='/usr/sbin/natter'
+HOOK='/usr/share/natter/natter-hook.sh'
+TEMP='/usr/share/natter/natter-config.template.json'
+SCRIPT='/etc/natter/custom-script.sh'
+CHECK='/usr/libexec/natter/natcheck.sh'
+CONF='/var/etc/natter-config.json'
+LOGG='/var/natter/natter.log'
+STAT='/var/natter/natter-status.json'
+# uci
+CONFIG_NAME='natter'
+TYPEDSECTION='natter'
+PORTRULES='portrule'
+
+
+
+check_nat() {
+	${CHECK} $1 >/dev/null
+	local n="$(${CHECK} $1 | base64)"
+	[ "$n" == "VURQOiBGdWxsIGNvbmUgKE5BVCAxKSAKVENQOiBDb25lIE5BVCAK" -o \
+	  "$n" == "VURQOiBPcGVuIEludGVybmV0IApUQ1A6IENvbmUgTkFUIAo=" ] && return 0 || return 1
+}
+
+init_natter() {
+	mkdir -p "${LOGG%/*}" 2>/dev/null
+	# clear up
+	cat /dev/null > "$LOGG" > "$STAT"
+	# init natter conf
+	cp -f "$TEMP" "$CONF"
+
+	[ "$1" == "" ] && return 0
+
+	local ucivv="log_level keepalive_server"
+
+	for _var in $ucivv; do
+		eval "local $_var=\$(config_get $1 $_var 2>/dev/null)"
+	done
+	local tcp_stun=$(uci get $CONFIG_NAME.@$TYPEDSECTION[0].tcp_stun 2>/dev/null|sed -E "s/('[^']+'|[^' ]+)/'\1'/g; s|''|'|g; s|' '|',\\\n            '|g; s|'|\"|g; s|^|           |")
+	local udp_stun=$(uci get $CONFIG_NAME.@$TYPEDSECTION[0].udp_stun 2>/dev/null|sed -E "s/('[^']+'|[^' ]+)/'\1'/g; s|''|'|g; s|' '|',\\\n            '|g; s|'|\"|g; s|^|           |")
+	#config_list_foreach $1 udp_stun echo 2>/dev/null|sed "s|^|\"|g; s|$|\",|g; s|'|\"|g; \${s|,$||}"
+
+	# white conf
+	sed -Ei " \
+		/\"logging\": \{/,/\},*$/{s|(\"level\": \")([^\"]*)|\1$log_level|; s|(\"log_file\": \")([^\"]*)|\1$LOGG|}; \
+		/\"status_report\": \{/,/\},*$/{s|./natter-hook.sh|$HOOK|; s|(\"status_file\": \")([^\"]*)|\1$STAT|}; \
+		s|(\"keep_alive\": \")([^\"]*)|\1$keepalive_server|; \
+		/\"tcp\": \[/,/\],*$/{/\"[^\"]+\",*$/d}; \
+		/\"udp\": \[/,/\],*$/{/\"[^\"]+\",*$/d}; \
+	" "$CONF"
+	# white stun_server
+	sed -Ei "$(sed -En "/\"stun_server\": \{/,/\},*$/{ /\"tcp\": \[/=}" "$CONF")a\ $tcp_stun" "$CONF"
+	sed -Ei "$(sed -En "/\"stun_server\": \{/,/\},*$/{ /\"udp\": \[/=}" "$CONF")a\ $udp_stun" "$CONF"
+}
+
+start_service() {
+	local enabled
+
+	config_load "$CONFIG_NAME"
+	eval "enabled=\$CONFIG_${CONFIG_SECTIONS%% *}_enabled"
+	[ "${enabled:=0}" == "0" ] && stop_service && return 1
+	# if natter runing? && return 0
+
+	`check_nat` && NAT_TYPE=1 || NAT_TYPE=#
+	config_foreach init_natter "$TYPEDSECTION"
+	# white port and set firewall
+	#start
+}
+
+service_triggers() {
+	procd_add_reload_trigger "$CONFIG_NAME"
+}
+
+stop_service() {
+	return 0
+}

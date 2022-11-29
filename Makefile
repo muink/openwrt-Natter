@@ -29,7 +29,7 @@ define Package/$(PKG_NAME)
 	CATEGORY:=Network
 	TITLE:=Open Port under FullCone NAT (NAT 1)
 	URL:=https://github.com/MikeWang000000/Natter
-	DEPENDS:=+python3-light +bash
+	DEPENDS:=+python3-light +bash +coreutils-base64
 	PKGARCH:=all
 endef
 
@@ -97,8 +97,10 @@ define Package/$(PKG_NAME)/install
 	$(INSTALL_DATA) $(PKG_BUILD_DIR)/natter.py $(1)/usr/share/$(PKG_NAME)/natter.py
 	$(INSTALL_DATA) $(PKG_BUILD_DIR)/natter-config.template.json $(1)/usr/share/$(PKG_NAME)/natter-config.template.json
 	$(INSTALL_DIR) $(1)/usr/libexec/$(PKG_NAME)
+	$(INSTALL_DIR) $(1)/etc/init.d
 	$(INSTALL_DIR) $(1)/etc/config
 	$(INSTALL_BIN) ./files/natcheck.sh $(1)/usr/libexec/$(PKG_NAME)/natcheck.sh
+	$(INSTALL_BIN) ./files/natter.init $(1)/etc/init.d/$(PKG_NAME)
 	$(INSTALL_CONF) ./files/natter.config $(1)/etc/config/$(PKG_NAME)
 endef
 
