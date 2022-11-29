@@ -45,15 +45,23 @@ endef
 
 define Package/$(PKG_NAME)/postinst
 #!/bin/sh
-if [ ! -f /etc/$(PKG_NAME)/custom-script.sh ]; then
-	mkdir -p /etc/$(PKG_NAME) 2>/dev/null
+white_script() {
 	cat <<-EOF > /etc/$(PKG_NAME)/custom-script.sh
 	#!/bin/sh
 	#
-	# Write your upload script below...
 	EOF
-	chmod 755 /etc/$(PKG_NAME)/custom-script.sh
+	sed -n '1,/^echo /{s|^echo .*|# Write your upload script below...|;p}' /usr/share/$(PKG_NAME)/natter-hook.sh >> /etc/$(PKG_NAME)/custom-script.sh
+}
+if [ ! -f /etc/$(PKG_NAME)/custom-script.sh ]; then
+	mkdir -p /etc/$(PKG_NAME) 2>/dev/null
+	white_script
+else
+	mv -f /etc/$(PKG_NAME)/custom-script.sh /etc/$(PKG_NAME)/custom-script.sh.bak
+	sed -Ei "1,/^#+ Write your upload script below.../{s|^|#|g}" /etc/$(PKG_NAME)/custom-script.sh.bak
+	white_script
+	cat /etc/$(PKG_NAME)/custom-script.sh.bak >> /etc/$(PKG_NAME)/custom-script.sh
 fi
+chmod 755 /etc/$(PKG_NAME)/custom-script.sh
 uci show firewall | grep "name='NatTypeTest'" >/dev/null
 if [ "$$?" == "1" ]; then
 	section=$$(uci add firewall rule)
