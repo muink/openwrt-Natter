@@ -63,6 +63,53 @@ init_natter() {
 	sed -Ei "$(sed -En "/\"stun_server\": \{/,/\},*$/{ /\"udp\": \[/=}" "$CONF")a\ $udp_stun" "$CONF"
 }
 
+apply_port_rules() {
+	local rule_count=$(uci show natter|grep "$PORTRULES"|tail -n1|sed -En "s|.+@.+\[(.+)\].+|\1|p")
+	local open_port_list_tcp open_port_list_udp forward_port_list_tcp forward_port_list_udp
+
+for i in $(seq 0 1 $rule_count); do
+	[ "$(uci get $CONFIG_NAME.@$PORTRULES[$i].enabled 2>/dev/null)" == "0" ] && continue
+	[ "$(uci get $CONFIG_NAME.@$PORTRULES[$i].mode 2>/dev/null)" == "via" -a "$NAT_TYPE" == "#" ] && continue
+
+	local ucivv="comment action mode bind_iface bind_port server_ip server_port proto"
+	for _var in $ucivv; do
+		eval "local $_var=\$(uci get $CONFIG_NAME.@$PORTRULES[$i].$_var 2>/dev/null)"
+	done
+	local bind_ip id
+	id=$(uci show $CONFIG_NAME.@$PORTRULES[$i] 2>/dev/null|head -n1|sed -E 's|.+\.(cfg[^=]+)=.+|\1|')
+	[ "$bind_iface" == "" ] && bind_ip='0.0.0.0' || bind_ip="$(ip -4 -o addr|grep "$bind_iface"|sed -En "s|.+inet ([^/]+)/\d{2}.+|\1|p")"
+
+
+	if   [ "$action" == "bind" ]; then
+		# white open_port action==bind id comment *bind_iface bind_port proto
+		eval "open_port_list_$proto=\"\$open_port_list_$proto '\${bind_ip}:\${bind_port}'\""
+		# set firewall
+		white_fw_rule 'input' "$id" "$comment" "$proto" "$bind_ip" "$bind_port"
+	elif [ "$action" == "forward" ]; then
+		if   [ "$mode" == "dnat" ]; then
+			# white forward_port action==forward mode==dnat id comment *bind_iface bind_port proto server_ip server_port
+			eval "open_port_list_$proto=\"\$open_port_list_$proto '\${bind_ip}:\${bind_port}'\""
+			# set firewall
+			if  [ -n "$server_ip" ]; then
+				[ -n "$(echo $server_ip|grep -E "^127(\.\d+){3}$")" ] && server_ip=$(uci -q get network.$(uci show network|grep "device='br-lan'"|cut -f2 -d'.').ipaddr)
+			else
+				>&2 echo -e "$(basename $0): server_ip is empty." && return 1
+			fi
+			white_fw_rule 'dnat' "$id" "$comment" "$proto" "$bind_ip" "$bind_port" "$server_ip" "$server_port"
+		elif [ "$mode" == "via" ]; then
+			# white forward_port action==forward mode==via id comment proto server_ip server_port
+			eval "forward_port_list_$proto=\"\$forward_port_list_$proto '\${server_ip}:\${server_port}'\""
+		fi
+	fi
+done
+
+# white conf
+sed -Ei "$(sed -En "/\"open_port\": \{/,/\},*$/{ /\"tcp\": \[/=}" "$CONF")a\ $(echo $open_port_list_tcp|sed "s|' '|',\\\n            '|g; s|^'|           '|; s|'|\"|g")" "$CONF"
+sed -Ei "$(sed -En "/\"open_port\": \{/,/\},*$/{ /\"udp\": \[/=}" "$CONF")a\ $(echo $open_port_list_udp|sed "s|' '|',\\\n            '|g; s|^'|           '|; s|'|\"|g")" "$CONF"
+sed -Ei "$(sed -En "/\"forward_port\": \{/,/\},*$/{ /\"tcp\": \[/=}" "$CONF")a\ $(echo $forward_port_list_tcp|sed "s|' '|',\\\n            '|g; s|^'|           '|; s|'|\"|g")" "$CONF"
+sed -Ei "$(sed -En "/\"forward_port\": \{/,/\},*$/{ /\"udp\": \[/=}" "$CONF")a\ $(echo $forward_port_list_udp|sed "s|' '|',\\\n            '|g; s|^'|           '|; s|'|\"|g")" "$CONF"
+}
+
 start_service() {
 	local enabled
 
@@ -73,12 +120,12 @@ start_service() {
 
 	`check_nat` && NAT_TYPE=1 || NAT_TYPE=#
 	config_foreach init_natter "$TYPEDSECTION"
-	# white port and set firewall
+	apply_port_rules
 	#start
 }
 
 service_triggers() {
-	procd_add_reload_trigger "$CONFIG_NAME"
+	procd_add_reload_trigger "$CONFIG_NAME" 'network'
 }
 
 stop_service() {
