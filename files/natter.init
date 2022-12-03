@@ -82,13 +82,13 @@ for i in $(seq 0 1 $rule_count); do
 
 	if   [ "$action" == "bind" ]; then
 		# white open_port action==bind id comment *bind_iface bind_port proto
-		eval "open_port_list_$proto=\"\$open_port_list_$proto '\${bind_ip}:\${bind_port}'\""
+		eval "open_port_list_$proto=\"\$open_port_list_$proto'\${bind_ip}:\${bind_port}'\n\""
 		# set firewall
 		white_fw_rule 'input' "$id" "$comment" "$proto" "$bind_ip" "$bind_port"
 	elif [ "$action" == "forward" ]; then
 		if   [ "$mode" == "dnat" ]; then
 			# white forward_port action==forward mode==dnat id comment *bind_iface bind_port proto server_ip server_port
-			eval "open_port_list_$proto=\"\$open_port_list_$proto '\${bind_ip}:\${bind_port}'\""
+			eval "open_port_list_$proto=\"\$open_port_list_$proto'\${bind_ip}:\${bind_port}'\n\""
 			# set firewall
 			if  [ -n "$server_ip" ]; then
 				[ -n "$(echo $server_ip|grep -E "^127(\.\d+){3}$")" ] && server_ip=$(uci -q get network.$(uci show network|grep "device='br-lan'"|cut -f2 -d'.').ipaddr)
@@ -98,16 +98,16 @@ for i in $(seq 0 1 $rule_count); do
 			white_fw_rule 'dnat' "$id" "$comment" "$proto" "$bind_ip" "$bind_port" "$server_ip" "$server_port"
 		elif [ "$mode" == "via" ]; then
 			# white forward_port action==forward mode==via id comment proto server_ip server_port
-			eval "forward_port_list_$proto=\"\$forward_port_list_$proto '\${server_ip}:\${server_port}'\""
+			eval "forward_port_list_$proto=\"\$forward_port_list_$proto'\${server_ip}:\${server_port}'\n\""
 		fi
 	fi
 done
 
 # white conf
-sed -Ei "$(sed -En "/\"open_port\": \{/,/\},*$/{ /\"tcp\": \[/=}" "$CONF")a\ $(echo $open_port_list_tcp|sed "s|' '|',\\\n            '|g; s|^'|           '|; s|'|\"|g")" "$CONF"
-sed -Ei "$(sed -En "/\"open_port\": \{/,/\},*$/{ /\"udp\": \[/=}" "$CONF")a\ $(echo $open_port_list_udp|sed "s|' '|',\\\n            '|g; s|^'|           '|; s|'|\"|g")" "$CONF"
-sed -Ei "$(sed -En "/\"forward_port\": \{/,/\},*$/{ /\"tcp\": \[/=}" "$CONF")a\ $(echo $forward_port_list_tcp|sed "s|' '|',\\\n            '|g; s|^'|           '|; s|'|\"|g")" "$CONF"
-sed -Ei "$(sed -En "/\"forward_port\": \{/,/\},*$/{ /\"udp\": \[/=}" "$CONF")a\ $(echo $forward_port_list_udp|sed "s|' '|',\\\n            '|g; s|^'|           '|; s|'|\"|g")" "$CONF"
+sed -Ei "$(sed -En "/\"open_port\": \{/,/\},*$/{ /\"tcp\": \[/=}" "$CONF")a\ $(echo $(echo -e "$open_port_list_tcp"|sort -u)|sed "s|' '|',\\\n            '|g; s|^'|           '|; s|'|\"|g")" "$CONF"
+sed -Ei "$(sed -En "/\"open_port\": \{/,/\},*$/{ /\"udp\": \[/=}" "$CONF")a\ $(echo $(echo -e "$open_port_list_udp"|sort -u)|sed "s|' '|',\\\n            '|g; s|^'|           '|; s|'|\"|g")" "$CONF"
+sed -Ei "$(sed -En "/\"forward_port\": \{/,/\},*$/{ /\"tcp\": \[/=}" "$CONF")a\ $(echo $(echo -e "$forward_port_list_tcp"|sort -u)|sed "s|' '|',\\\n            '|g; s|^'|           '|; s|'|\"|g")" "$CONF"
+sed -Ei "$(sed -En "/\"forward_port\": \{/,/\},*$/{ /\"udp\": \[/=}" "$CONF")a\ $(echo $(echo -e "$forward_port_list_udp"|sort -u)|sed "s|' '|',\\\n            '|g; s|^'|           '|; s|'|\"|g")" "$CONF"
 }
 
 start_service() {
