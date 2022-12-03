@@ -113,6 +113,21 @@ sed -Ei "$(sed -En "/\"forward_port\": \{/,/\},*$/{ /\"tcp\": \[/=}" "$CONF")a\ 
 sed -Ei "$(sed -En "/\"forward_port\": \{/,/\},*$/{ /\"udp\": \[/=}" "$CONF")a\ $(echo $(echo -e "$forward_port_list_udp"|sort -u)|sed "s|' '|',\\\n            '|g; s|^'|           '|; s|'|\"|g")" "$CONF"
 }
 
+natter_launch() {
+	if   [ "$FW" == "fw4" ]; then
+	elif [ "$FW" == "fw3" ]; then
+		iptables -L NATTER >/dev/null 2>&1 || fw3 reload
+	fi
+
+	procd_open_instance
+	procd_set_param command "$PROG"
+	procd_append_param command -c "$CONF"
+	[ "$logger" == "1" ] && \
+	procd_set_param stdout 1 && \
+	procd_set_param stderr 1
+	procd_close_instance
+}
+
 start_service() {
 	local enabled
 
@@ -124,7 +139,7 @@ start_service() {
 	`check_nat` && NAT_TYPE=1 || NAT_TYPE=#
 	config_foreach init_natter "$TYPEDSECTION"
 	apply_port_rules
-	#start
+	[ $? == 0 ] && natter_launch
 }
 
 service_triggers() {
