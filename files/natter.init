@@ -75,11 +75,12 @@ for i in $(seq 0 1 $rule_count); do
 	for _var in $ucivv; do
 		eval "local $_var=\$(uci get $CONFIG_NAME.@$PORTRULES[$i].$_var 2>/dev/null)"
 	done
-	local bind_ip id
+	local bind_ip id protocols
 	id=$(uci show $CONFIG_NAME.@$PORTRULES[$i] 2>/dev/null|head -n1|sed -E 's|.+\.(cfg[^=]+)=.+|\1|')
 	[ "$bind_iface" == "" ] && bind_ip='0.0.0.0' || bind_ip="$(ip -4 -o addr|grep "$bind_iface"|sed -En "s|.+inet ([^/]+)/\d{2}.+|\1|p")"
+	[ "$proto" == "both" ] && protocols="tcp udp" || protocols="$proto"
 
-
+for proto in $protocols; do
 	if   [ "$action" == "bind" ]; then
 		# white open_port action==bind id comment *bind_iface bind_port proto
 		eval "open_port_list_$proto=\"\$open_port_list_$proto'\${bind_ip}:\${bind_port}'\n\""
@@ -101,6 +102,8 @@ for i in $(seq 0 1 $rule_count); do
 			eval "forward_port_list_$proto=\"\$forward_port_list_$proto'\${server_ip}:\${server_port}'\n\""
 		fi
 	fi
+done
+
 done
 
 # white conf
