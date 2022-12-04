@@ -19,6 +19,7 @@ if [ "$?" == "1" ]; then
 	EOF
 fi
 
-/etc/init.d/firewall restart >/dev/null 2>&1
+/etc/init.d/firewall reload >/dev/null 2>&1
 
+natter --check-nat $port >/dev/null 2>&1
 eval "natter --check-nat $port 2>&1 | sed -En \"/(UDP|TCP): \[/{s,.+(UDP|TCP): \[(.+)\]\$,\1:\2,g p}\" $output"

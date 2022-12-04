@@ -26,7 +26,6 @@ PORTRULES='portrule'
 
 
 check_nat() {
-	${CHECK} $1 >/dev/null
 	local n="$(${CHECK} $1 | base64)"
 	[ "$n" == "VURQOiBGdWxsIGNvbmUgKE5BVCAxKSAKVENQOiBDb25lIE5BVCAK" -o \
 	  "$n" == "VURQOiBPcGVuIEludGVybmV0IApUQ1A6IENvbmUgTkFUIAo=" ] && return 0 || return 1
