@@ -24,7 +24,7 @@ TYPEDSECTION='natter'
 PORTRULES='portrule'
 
 
-
+# check_nat [port]
 check_nat() {
 	local n="$(${CHECK} $1 | base64)"
 	[ "$n" == "VURQOiBGdWxsIGNvbmUgKE5BVCAxKSAKVENQOiBDb25lIE5BVCAK" -o \
@@ -52,6 +52,7 @@ local outsubnet="$(echo $(for i in $(seq 1 4); do eval "echo \$(( \$(echo $addre
 eval "$1=\$outsubnet"
 }
 
+# init_natter [uci_section]
 init_natter() {
 	mkdir -p "${LOGG%/*}" 2>/dev/null
 	# clear up
