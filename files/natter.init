@@ -218,3 +218,7 @@ stop_service() {
 		iptables -t nat -F NATTER-POSTLOOPBACK 2>/dev/null
 	fi
 }
+
+restart() {
+	start
+}

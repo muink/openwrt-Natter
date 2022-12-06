@@ -113,9 +113,11 @@ define Package/$(PKG_NAME)/install
 	$(INSTALL_DIR) $(1)/usr/libexec/$(PKG_NAME)
 	$(INSTALL_DIR) $(1)/etc/init.d
 	$(INSTALL_DIR) $(1)/etc/config
+	$(INSTALL_DIR) $(1)/etc/hotplug.d/iface
 	$(INSTALL_BIN) ./files/natcheck.sh $(1)/usr/libexec/$(PKG_NAME)/natcheck.sh
 	$(INSTALL_BIN) ./files/natter.init $(1)/etc/init.d/$(PKG_NAME)
 	$(INSTALL_CONF) ./files/natter.config $(1)/etc/config/$(PKG_NAME)
+	$(INSTALL_DATA) ./files/natter.hotplug $(1)/etc/hotplug.d/iface/70-$(PKG_NAME)
 endef
 
 $(eval $(call BuildPackage,$(PKG_NAME)))
