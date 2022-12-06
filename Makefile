@@ -83,7 +83,7 @@ if [ "$$?" == "1" ]; then
 		commit luci
 	EOF
 fi
-[ -x '/usr/sbin/nft' ] && FW='fw4' || FW='fw3'
+[ -x "$$(which nft)" ] && FW='fw4' || FW='fw3'
 uci -q batch <<-EOF
 	delete firewall.$(PKG_NAME)
 	set firewall.$(PKG_NAME)=include

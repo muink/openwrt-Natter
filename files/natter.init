@@ -9,7 +9,7 @@ START=70
 STOP=90
 USE_PROCD=1
 # natter
-[ -x '/usr/sbin/nft' ] && FW='fw4' || FW='fw3'
+[ -x "$(which nft)" ] && FW='fw4' || FW='fw3'
 PROG='/usr/sbin/natter'
 HOOK='/usr/share/natter/natter-hook.sh'
 TEMP='/usr/share/natter/natter-config.template.json'
@@ -55,20 +55,22 @@ eval "$1=\$outsubnet"
 # init_natter [uci_section]
 init_natter() {
 	mkdir -p "${LOGG%/*}" 2>/dev/null
+	mkdir -p "${CONF%/*}" 2>/dev/null
 	# clear up
 	cat /dev/null > "$LOGG" > "$STAT"
-	# init natter conf
-	cp -f "$TEMP" "$CONF"
 
 	[ "$1" == "" ] && return 0
+
+	# init natter conf
+	cp -f "$TEMP" "$CONF"
 
 	local ucivv="log_level keepalive_server"
 
 	for _var in $ucivv; do
 		eval "local $_var=\$(config_get $1 $_var 2>/dev/null)"
 	done
-	local tcp_stun=$(uci get $CONFIG_NAME.@$TYPEDSECTION[0].tcp_stun 2>/dev/null|sed -E "s/('[^']+'|[^' ]+)/'\1'/g; s|''|'|g; s|' '|',\\\n            '|g; s|'|\"|g; s|^|           |")
-	local udp_stun=$(uci get $CONFIG_NAME.@$TYPEDSECTION[0].udp_stun 2>/dev/null|sed -E "s/('[^']+'|[^' ]+)/'\1'/g; s|''|'|g; s|' '|',\\\n            '|g; s|'|\"|g; s|^|           |")
+	local tcp_stun=$(uci -q get $CONFIG_NAME.@$TYPEDSECTION[0].tcp_stun|sed -E "s/('[^']+'|[^' ]+)/'\1'/g; s|''|'|g; s|' '|',\\\n            '|g; s|'|\"|g; s|^|           |")
+	local udp_stun=$(uci -q get $CONFIG_NAME.@$TYPEDSECTION[0].udp_stun|sed -E "s/('[^']+'|[^' ]+)/'\1'/g; s|''|'|g; s|' '|',\\\n            '|g; s|'|\"|g; s|^|           |")
 	#config_list_foreach $1 udp_stun echo 2>/dev/null|sed "s|^|\"|g; s|$|\",|g; s|'|\"|g; \${s|,$||}"
 
 	# white conf
@@ -85,16 +87,16 @@ init_natter() {
 }
 
 apply_port_rules() {
-	local rule_count=$(uci show natter|grep "$PORTRULES"|tail -n1|sed -En "s|.+@.+\[(.+)\].+|\1|p")
+	local rule_count=$(uci show $CONFIG_NAME|grep "$PORTRULES"|tail -n1|sed -En "s|.+@.+\[(.+)\].+|\1|p")
 	local open_port_list_tcp open_port_list_udp forward_port_list_tcp forward_port_list_udp
 
 for i in $(seq 0 1 $rule_count); do
-	[ "$(uci get $CONFIG_NAME.@$PORTRULES[$i].enabled 2>/dev/null)" == "0" ] && continue
-	[ "$(uci get $CONFIG_NAME.@$PORTRULES[$i].mode 2>/dev/null)" == "via" -a "$NAT_TYPE" == "#" ] && continue
+	[ "$(uci -q get $CONFIG_NAME.@$PORTRULES[$i].enabled)" == "0" ] && continue
+	[ "$(uci -q get $CONFIG_NAME.@$PORTRULES[$i].mode)" == "via" -a "$NAT_TYPE" == "#" ] && continue
 
 	local ucivv="comment action mode bind_iface bind_port server_ip server_port proto"
 	for _var in $ucivv; do
-		eval "local $_var=\$(uci get $CONFIG_NAME.@$PORTRULES[$i].$_var 2>/dev/null)"
+		eval "local $_var=\$(uci -q get $CONFIG_NAME.@$PORTRULES[$i].$_var)"
 	done
 	local bind_ip id protocols
 	id=$(uci show $CONFIG_NAME.@$PORTRULES[$i] 2>/dev/null|head -n1|sed -E 's|.+\.(cfg[^=]+)=.+|\1|')
@@ -176,6 +178,7 @@ fi
 
 natter_launch() {
 	if   [ "$FW" == "fw4" ]; then
+		return 0
 	elif [ "$FW" == "fw3" ]; then
 		iptables -L NATTER >/dev/null 2>&1 || fw3 reload
 	fi
@@ -204,13 +207,14 @@ start_service() {
 }
 
 service_triggers() {
-	procd_add_reload_trigger "$CONFIG_NAME" 'network'
+	procd_add_reload_trigger "$CONFIG_NAME"
 }
 
 stop_service() {
 	for i in $(ps|grep 'natter.py'|grep -v 'grep'|grep -v $$|awk '{print $1}'); do kill -9 "$i" 2>/dev/null; done
 	init_natter
 	if   [ "$FW" == "fw4" ]; then
+		return 0
 	elif [ "$FW" == "fw3" ]; then
 		iptables -t filter -F NATTER 2>/dev/null
 		iptables -t nat -F NATTER-PREROUTING 2>/dev/null
