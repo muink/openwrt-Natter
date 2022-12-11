@@ -178,7 +178,7 @@ fi
 
 natter_launch() {
 	if   [ "$FW" == "fw4" ]; then
-		return 0
+		nft -s -t -n list chain inet fw4 natter_input >/dev/null 2>&1 || fw4 reload
 	elif [ "$FW" == "fw3" ]; then
 		iptables -L NATTER >/dev/null 2>&1 || fw3 reload
 	fi
@@ -214,7 +214,10 @@ stop_service() {
 	for i in $(ps|grep 'natter.py'|grep -v 'grep'|grep -v $$|awk '{print $1}'); do kill -9 "$i" 2>/dev/null; done
 	init_natter
 	if   [ "$FW" == "fw4" ]; then
-		return 0
+		nft flush chain inet fw4 natter_input 2>/dev/null
+		nft flush chain inet fw4 natter_prerouting 2>/dev/null
+		nft flush chain inet fw4 natter_preloopback 2>/dev/null
+		nft flush chain inet fw4 natter_postloopback 2>/dev/null
 	elif [ "$FW" == "fw3" ]; then
 		iptables -t filter -F NATTER 2>/dev/null
 		iptables -t nat -F NATTER-PREROUTING 2>/dev/null

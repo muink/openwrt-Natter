@@ -1,0 +1,8 @@
+#!/bin/sh
+# natter integration for firewall4
+
+#nft list tables
+#nft list table inet fw4
+
+/etc/init.d/natter enabled && /etc/init.d/natter restart
+exit 0

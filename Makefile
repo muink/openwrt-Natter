@@ -89,10 +89,15 @@ uci -q batch <<-EOF
 	set firewall.$(PKG_NAME)=include
 	set firewall.$(PKG_NAME).type=script
 	set firewall.$(PKG_NAME).path=/usr/share/$(PKG_NAME)/$$FW.include
+	commit firewall
+EOF
+if [ "$$FW" == "fw3" ]; then
+uci -q batch <<-EOF
 	set firewall.$(PKG_NAME).family=any
 	set firewall.$(PKG_NAME).reload=1
 	commit firewall
 EOF
+fi
 endef
 
 define Package/$(PKG_NAME)/prerm
@@ -110,6 +115,7 @@ define Package/$(PKG_NAME)/install
 	$(INSTALL_DATA) $(PKG_BUILD_DIR)/natter.py $(1)/usr/share/$(PKG_NAME)/natter.py
 	$(INSTALL_DATA) $(PKG_BUILD_DIR)/natter-config.template.json $(1)/usr/share/$(PKG_NAME)/natter-config.template.json
 	$(INSTALL_DATA) ./files/fw3.include $(1)/usr/share/$(PKG_NAME)/fw3.include
+	$(INSTALL_DATA) ./files/fw4.include $(1)/usr/share/$(PKG_NAME)/fw4.include
 	$(INSTALL_DIR) $(1)/usr/libexec/$(PKG_NAME)
 	$(INSTALL_DIR) $(1)/etc/init.d
 	$(INSTALL_DIR) $(1)/etc/config
@@ -118,6 +124,8 @@ define Package/$(PKG_NAME)/install
 	$(INSTALL_BIN) ./files/natter.init $(1)/etc/init.d/$(PKG_NAME)
 	$(INSTALL_CONF) ./files/natter.config $(1)/etc/config/$(PKG_NAME)
 	$(INSTALL_DATA) ./files/natter.hotplug $(1)/etc/hotplug.d/iface/70-$(PKG_NAME)
+	$(INSTALL_DIR) $(1)/usr/share/nftables.d
+	$(CP) ./files/nftables.d/* $(1)/usr/share/nftables.d/
 endef
 
 $(eval $(call BuildPackage,$(PKG_NAME)))
