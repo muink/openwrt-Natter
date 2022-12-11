@@ -169,18 +169,18 @@ network_get_ipaddr lan_addr $(uci show network|grep "device='br-lan'"|cut -f2 -d
 network_get_subnet lan_subnet $(uci show network|grep "device='br-lan'"|cut -f2 -d'.'|head -n1)
 subnet_format lan_subnet "$lan_subnet"
 
-if   [ "$_type" == "input" ]; then
-	#ref:    -t filter -A zone_wan_input [ -i <wan_device: e.g. eth1> | -d <wan_addr: e.g. 100.64.0.1>/32 ] -p <protocol> -m <protocol> --dport <bind_port> [ -m comment --comment "comment..." ] -j ACCEPT
-	iptables -t filter -A NATTER -i $def_wan_dev -p $_proto -m $_proto --dport ${_bind_port} -m comment --comment "Natter_${_id}_$_comment" -j ACCEPT
-elif [ "$_type" == "dnat" ]; then
-	#ref:    -t nat -A zone_wan_prerouting [ -i <wan_device: e.g. eth1> | -d <wan_addr: e.g. 100.64.0.1>/32 ] -p <protocol> -m <protocol> --dport <bind_port> [ -m comment --comment "comment..." ] -j DNAT --to-destination <intenal_server_ip>:<intenal_server_port>
-	iptables -t nat -A NATTER-PREROUTING -i $def_wan_dev -p $_proto -m $_proto --dport ${_bind_port} -m comment --comment "Natter_${_id}_$_comment" -j DNAT --to-destination ${_server_ip}:${_server_port}
-	#loopback
-	#ref:    -t nat -A zone_lan_postrouting -s <lan_subnet: e.g. 192.168.1.0/24> -d <intenal_server_ip>/32 -p <protocol> -m <protocol> --dport <intenal_server_port> [ -m comment --comment "comment..." ] -j SNAT --to-source <lan_addr: e.g. 192.168.1.1>
-	iptables -t nat -A NATTER-POSTLOOPBACK -s $lan_subnet -d ${_server_ip}/32 -p $_proto -m $_proto --dport ${_server_port} -m comment --comment "Natter_${_id}_$_comment (reflection)" -j SNAT --to-source $lan_addr
-	#ref:    -t nat -A zone_lan_prerouting -s <lan_subnet: e.g. 192.168.1.0/24> -d <wan_addr: e.g. 100.64.0.1>/32 -p <protocol> -m <protocol> --dport <bind_port> [ -m comment --comment "comment..." ] -j DNAT --to-destination <intenal_server_ip>:<intenal_server_port>
-	iptables -t nat -A NATTER-PRELOOPBACK -s $lan_subnet -d ${def_wan_addr}/32 -p $_proto -m $_proto --dport ${_bind_port} -m comment --comment "Natter_${_id}_$_comment (reflection)" -j DNAT --to-destination ${_server_ip}:${_server_port}
-fi
+		if   [ "$_type" == "input" ]; then
+			#ref:    -t filter -A zone_wan_input [ -i <wan_device: e.g. eth1> | -d <wan_addr: e.g. 100.64.0.1>/32 ] -p <protocol> -m <protocol> --dport <bind_port> [ -m comment --comment "comment..." ] -j ACCEPT
+			iptables -t filter -A NATTER -i $def_wan_dev -p $_proto -m $_proto --dport ${_bind_port} -m comment --comment "Natter_${_id}_$_comment" -j ACCEPT
+		elif [ "$_type" == "dnat" ]; then
+			#ref:    -t nat -A zone_wan_prerouting [ -i <wan_device: e.g. eth1> | -d <wan_addr: e.g. 100.64.0.1>/32 ] -p <protocol> -m <protocol> --dport <bind_port> [ -m comment --comment "comment..." ] -j DNAT --to-destination <intenal_server_ip>:<intenal_server_port>
+			iptables -t nat -A NATTER-PREROUTING -i $def_wan_dev -p $_proto -m $_proto --dport ${_bind_port} -m comment --comment "Natter_${_id}_$_comment" -j DNAT --to-destination ${_server_ip}:${_server_port}
+			#loopback
+			#ref:    -t nat -A zone_lan_postrouting -s <lan_subnet: e.g. 192.168.1.0/24> -d <intenal_server_ip>/32 -p <protocol> -m <protocol> --dport <intenal_server_port> [ -m comment --comment "comment..." ] -j SNAT --to-source <lan_addr: e.g. 192.168.1.1>
+			iptables -t nat -A NATTER-POSTLOOPBACK -s $lan_subnet -d ${_server_ip}/32 -p $_proto -m $_proto --dport ${_server_port} -m comment --comment "Natter_${_id}_$_comment (reflection)" -j SNAT --to-source $lan_addr
+			#ref:    -t nat -A zone_lan_prerouting -s <lan_subnet: e.g. 192.168.1.0/24> -d <wan_addr: e.g. 100.64.0.1>/32 -p <protocol> -m <protocol> --dport <bind_port> [ -m comment --comment "comment..." ] -j DNAT --to-destination <intenal_server_ip>:<intenal_server_port>
+			iptables -t nat -A NATTER-PRELOOPBACK -s $lan_subnet -d ${def_wan_addr}/32 -p $_proto -m $_proto --dport ${_bind_port} -m comment --comment "Natter_${_id}_$_comment (reflection)" -j DNAT --to-destination ${_server_ip}:${_server_port}
+		fi
 }
 
 natter_launch() {
