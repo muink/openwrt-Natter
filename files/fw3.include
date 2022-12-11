@@ -4,6 +4,9 @@
 IPTABLES="/usr/sbin/iptables"
 IPTARGS="-w 1"
 
+CONFIG_NAME='natter'
+PORTRULES='portrule'
+
 $IPTABLES -t filter -N NATTER 2>/dev/null
 $IPTABLES -t nat -N NATTER-PREROUTING 2>/dev/null
 $IPTABLES -t nat -N NATTER-PRELOOPBACK 2>/dev/null
@@ -45,6 +48,17 @@ add_intzone_rules() {
 	$IPTABLES -t nat -A "zone_${int_zone}_postrouting" -j NATTER-POSTLOOPBACK
 }
 
+# By default, user configuration is king.
+
+defined_device=
+
+for ext_device in $(uci -q show $CONFIG_NAME|grep 'bind_iface'|sed -E "s|.+@$PORTRULES\[(\d+)\].+'([^']+)'$|\1:\2|"); do
+	if [ "$(uci -q get $CONFIG_NAME.@$PORTRULES[${ext_device%%:*}].enabled)" == "1" ]; then
+		add_extzone_rules $(fw3 -q device "${ext_device##*:}")
+		defined_device="$defined_device ${ext_device##*:}"
+	fi
+done
+
 # If really nothing is available, resort to network_find_wan and
 # assume external interfaces all have same firewall zone.
 
@@ -56,6 +70,7 @@ network_find_wan wan_iface
 for ext_iface in $wan_iface; do
 	# fw3 -q network fails on sub-interfaces => map to device first
 	network_get_device ext_device $ext_iface
+	[ -n "$ext_device" -a -n "$(echo "$defined_device"|grep "$ext_device")" ] && continue
 	add_extzone_rules $(fw3 -q device "$ext_device")
 done
 
