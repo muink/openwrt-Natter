@@ -22,7 +22,7 @@ pushd package/natter
 umask 022
 git checkout
 popd
-# Select the package LuCI -> Applications -> natter
+# Select the package Network -> natter
 make menuconfig
 # Start compiling
 make package/natter/compile V=99
