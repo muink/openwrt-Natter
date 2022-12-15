@@ -3,6 +3,7 @@ Natter on Openwrt
 
 ## Introduction
 This project is the software package of [Natter][] running on OpenWrt  
+LuCI can be found here [luci-app-natter](https://github.com/muink/luci-app-natter)  
 Recommended to use it with `luci-app-commands`
 
 ## Build
