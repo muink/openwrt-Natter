@@ -46,6 +46,7 @@ endef
 
 define Package/$(PKG_NAME)/postinst
 #!/bin/sh
+[ -x "$$(which nft)" ] && FW='fw4' || FW='fw3'
 white_script() {
 	cat <<-EOF > /etc/$(PKG_NAME)/custom-script.sh
 	#!/bin/sh
@@ -65,10 +66,16 @@ fi
 chmod 755 /etc/$(PKG_NAME)/custom-script.sh
 uci show firewall | grep "name='NatTypeTest'" >/dev/null
 if [ "$$?" == "1" ]; then
+	. /lib/functions/network.sh
+	network_find_wan wan_iface
+	for ext_iface in $$wan_iface; do
+		network_get_device ext_device $$ext_iface
+		srczone=$$($$FW -q device "$$ext_device")
+	done
 	section=$$(uci add firewall rule)
 	uci -q batch <<-EOF >/dev/null
 		set firewall.$$section.name='NatTypeTest'
-		set firewall.$$section.src='wan'
+		set firewall.$$section.src="$$srczone"
 		set firewall.$$section.dest_port='3456'
 		set firewall.$$section.target='ACCEPT'
 		commit firewall
@@ -83,7 +90,6 @@ if [ "$$?" == "1" ]; then
 		commit luci
 	EOF
 fi
-[ -x "$$(which nft)" ] && FW='fw4' || FW='fw3'
 uci -q batch <<-EOF
 	delete firewall.$(PKG_NAME)
 	set firewall.$(PKG_NAME)=include
