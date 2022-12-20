@@ -94,14 +94,20 @@ for i in $(seq 0 1 $rule_count); do
 	[ "$(uci -q get $CONFIG_NAME.@$PORTRULES[$i].enabled)" == "0" ] && continue
 	[ "$(uci -q get $CONFIG_NAME.@$PORTRULES[$i].mode)" == "via" -a "$NAT_TYPE" == "#" ] && continue
 
-	local ucivv="comment action mode bind_iface bind_port server_ip server_port proto"
+	local ucivv="comment action mode bind_ifaces bind_port server_ip server_port proto"
 	for _var in $ucivv; do
 		eval "local $_var=\$(uci -q get $CONFIG_NAME.@$PORTRULES[$i].$_var)"
 	done
-	local bind_ip id protocols
+	local bind_iface bind_ip id protocols
 	id=$(uci show $CONFIG_NAME.@$PORTRULES[$i] 2>/dev/null|head -n1|sed -E 's|.+\.(cfg[^=]+)=.+|\1|')
-	[ "$bind_iface" == "" ] && bind_ip='0.0.0.0' || bind_ip="$(ip -4 -o addr|grep "$bind_iface"|sed -En "s|.+inet ([^/]+)/\d{2}.+|\1|p")"
+	[ -z "$bind_ifaces" ] && bind_ifaces='none'
 	[ "$proto" == "both" ] && protocols="tcp udp" || protocols="$proto"
+
+for bind_iface in $bind_ifaces; do
+
+	[ "$bind_iface" == "none" ] && bind_iface=''
+	[ -z "$bind_iface" ] && bind_ip='0.0.0.0' || bind_ip="$(ip -4 -o addr|grep "$bind_iface"|sed -En "s|.+inet ([^/]+)/\d{2}.+|\1|p")"
+	[ -z "$bind_ip" ] && continue
 
 for proto in $protocols; do
 	if   [ "$action" == "bind" ]; then
@@ -125,6 +131,8 @@ for proto in $protocols; do
 			eval "forward_port_list_$proto=\"\$forward_port_list_$proto'\${server_ip}:\${server_port}'\n\""
 		fi
 	fi
+done
+
 done
 
 done
@@ -189,21 +197,6 @@ done
 
 case "$FW" in
 	fw4)
-		#[ -n "$_bind_iface" ] && wan_devices="$_bind_iface"
-		#for wan_device in $wan_devices; do
-		#	if   [ "$_type" == "input" ]; then
-		#		#ref:                 input_wan [ iifname "<wan_device: e.g. eth1>" | ip daddr <wan_addr: e.g. 100.64.0.1> ] <protocol> dport <bind_port> counter packets 0 bytes 0 accept [ comment "\"comment...\"" ]
-		#		nft add rule inet fw4 natter_input iifname "\"$wan_device\"" $_proto dport ${_bind_port} counter packets 0 bytes 0 accept comment "\"natter_${_id}_$_comment\""
-		#	elif [ "$_type" == "dnat" ]; then
-		#		#ref:                 dstnat_wan [ iifname "<wan_device: e.g. eth1>" | ip daddr <wan_addr: e.g. 100.64.0.1> ] meta nfproto ipv4 <protocol> dport <bind_port> counter packets 0 bytes 0 dnat ip to <intenal_server_ip>:<intenal_server_port> [ comment "\"comment...\"" ]
-		#		nft add rule inet fw4 natter_prerouting iifname "\"$wan_device\"" meta nfproto ipv4 $_proto dport ${_bind_port} counter packets 0 bytes 0 dnat ip to ${_server_ip}:${_server_port} comment "\"natter_${_id}_$_comment\""
-		#		#loopback
-		#		#ref:                 srcnat_lan iifname "\"br-lan\"" ip saddr <lan_subnet: e.g. 192.168.1.0/24> ip daddr <intenal_server_ip> <protocol> dport <intenal_server_port> snat ip to <lan_addr: e.g. 192.168.1.1> [ comment "\"comment...\"" ]
-		#		nft add rule inet fw4 natter_postloopback iifname "\"br-lan\"" ip saddr $lan_subnet ip daddr ${_server_ip} $_proto dport ${_server_port} snat ip to $lan_addr comment "Natter_${_id}_$_comment (reflection)"
-		#		#ref:                 dstnat_lan iifname "\"br-lan\"" ip saddr <lan_subnet: e.g. 192.168.1.0/24> ip daddr <wan_addr: e.g. 100.64.0.1> <protocol> dport <bind_port> dnat ip to <intenal_server_ip>:<intenal_server_port> [ comment "\"comment...\"" ]
-		#		nft add rule inet fw4 natter_preloopback iifname "\"br-lan\"" ip saddr $lan_subnet ip daddr ${def_wan_addr} $_proto dport ${_bind_port} dnat ip to ${_server_ip}:${_server_port} comment "Natter_${_id}_$_comment (reflection)"
-		#	fi
-		#done
 		if   [ "$_type" == "input" ]; then
 			#ref:                 input_wan [ iifname "<wan_device: e.g. eth1>" | ip daddr <wan_addr: e.g. 100.64.0.1> ] <protocol> dport <bind_port> counter packets 0 bytes 0 accept [ comment "\"comment...\"" ]
 			nft add rule inet fw4 natter_input iifname "\"$def_wan_dev\"" $_proto dport ${_bind_port} counter packets 0 bytes 0 accept comment "\"natter_${_id}_$_comment\""
