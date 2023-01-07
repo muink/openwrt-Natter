@@ -237,6 +237,8 @@ natter_launch() {
 	procd_open_instance
 	procd_set_param command "$PROG"
 	procd_append_param command -c "$CONF"
+	procd_set_param respawn
+	procd_set_param user root
 	[ "$logger" == "1" ] && \
 	procd_set_param stdout 1 && \
 	procd_set_param stderr 1
