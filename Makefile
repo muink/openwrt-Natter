@@ -64,7 +64,7 @@ else
 	cat /etc/$(PKG_NAME)/custom-script.sh.bak >> /etc/$(PKG_NAME)/custom-script.sh
 fi
 chmod 755 /etc/$(PKG_NAME)/custom-script.sh
-uci show firewall | grep "name='NatTypeTest'" >/dev/null
+uci show firewall | grep -E "firewall.@rule\[.+\.name='NatTypeTest'" >/dev/null
 if [ "$$?" == "1" ]; then
 	. /lib/functions/network.sh
 	network_find_wan wan_iface
