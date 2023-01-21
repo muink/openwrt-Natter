@@ -1,3 +1,5 @@
+#!/bin/sh
+
 /etc/init.d/natter enabled || exit 0
 
 [ "$ACTION" == "ifup" ] || exit 0
@@ -19,8 +21,8 @@ for i in $(seq 0 1 $rule_count); do
 	bind_iface="$(uci -q get $CONFIG_NAME.@$PORTRULES[$i].bind_iface)"
 	[ -n "$bind_iface" ] && {
 		[ "$DEVICE" == "$bind_iface" ] && break
-	} || break
+	} || continue
 	[ "$i" -eq "$rule_count" ] && exit 0
 done
 
-/etc/init.d/natter restart
+/etc/init.d/natter reload
