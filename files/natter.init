@@ -154,7 +154,6 @@ white_fw_rule() {
 	[ "$#" -ge 1 ] && local _server_ip="$1" && shift
 	[ "$#" -ge 1 ] && local _server_port="$1" && shift
 
-. /lib/functions/network.sh
 # iptables -t filter -F NATTER 2>/dev/null
 # iptables -t nat -F NATTER-PREROUTING 2>/dev/null
 # iptables -t nat -F NATTER-PRELOOPBACK 2>/dev/null
@@ -227,6 +226,30 @@ case "$FW" in
 esac
 }
 
+get_wan_on_list() {
+	local defined_device= ext_device
+
+	for ext_device in $(uci -q show $CONFIG_NAME|grep 'bind_iface'|sed -E "s|.+@$PORTRULES\[(\d+)\].+'([^']+)'$|\1:\2|"); do
+		if [ "$(uci -q get $CONFIG_NAME.@$PORTRULES[${ext_device%%:*}].enabled)" == "1" ]; then
+			[ -n "$(echo "$defined_device"|grep "${ext_device##*:}")" ] && continue
+			defined_device="$defined_device ${ext_device##*:}"
+		fi
+	done
+
+	local wan_iface ext_iface
+	network_find_wan wan_iface
+
+	for ext_iface in $wan_iface; do
+		network_get_device ext_device "$ext_iface"
+		[ -z "$ext_device" ] && network_get_physdev ext_device "$ext_iface"
+		[ -z "$ext_device" ] && continue
+		[ -n "$(echo "$defined_device"|grep "$ext_device")" ] && continue
+		defined_device="$defined_device $ext_device"
+	done
+
+echo $defined_device
+}
+
 natter_launch() {
 	if   [ "$FW" == "fw4" ]; then
 		nft -s -t -n list chain inet fw4 natter_input >/dev/null 2>&1 || fw4 reload
@@ -237,6 +260,10 @@ natter_launch() {
 	procd_open_instance
 	procd_set_param command "$PROG"
 	procd_append_param command -c "$CONF"
+	procd_append_param netdev "br-lan"
+	for ifname in $(get_wan_on_list); do
+		procd_append_param netdev "$ifname"
+	done
 	procd_set_param respawn
 	procd_set_param user root
 	[ "$logger" == "1" ] && \
@@ -247,6 +274,8 @@ natter_launch() {
 
 start_service() {
 	local enabled
+
+	. /lib/functions/network.sh
 
 	config_load "$CONFIG_NAME"
 	eval "enabled=\$CONFIG_${CONFIG_SECTIONS%% *}_enabled"
@@ -260,7 +289,17 @@ start_service() {
 }
 
 service_triggers() {
-	procd_add_reload_trigger "$CONFIG_NAME"
+	procd_add_reload_trigger "$CONFIG_NAME" 'network' 'firewall'
+
+	local iface ifname
+
+	iface=$(uci show network|grep "device='br-lan'"|cut -f2 -d'.'|head -n1)
+	[ -n "$iface" ] && procd_add_interface_trigger "interface.*.up" "$iface" /etc/init.d/natter reload
+
+	for ifname in $(get_wan_on_list); do
+		iface=$(uci show network|grep "device='$ifname'"|cut -f2 -d'.'|head -n1)
+		[ -n "$iface" ] && procd_add_interface_trigger "interface.*.up" "$iface" /etc/init.d/natter reload
+	done
 }
 
 stop_service() {
