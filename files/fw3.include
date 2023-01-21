@@ -70,8 +70,10 @@ network_find_wan wan_iface
 
 for ext_iface in $wan_iface; do
 	# fw3 -q network fails on sub-interfaces => map to device first
-	network_get_device ext_device $ext_iface
-	[ -n "$ext_device" -a -n "$(echo "$defined_device"|grep "$ext_device")" ] && continue
+	network_get_device ext_device "$ext_iface"
+	[ -z "$ext_device" ] && network_get_physdev ext_device "$ext_iface"
+	[ -z "$ext_device" ] && continue
+	[ -n "$(echo "$defined_device"|grep "$ext_device")" ] && continue
 	add_extzone_rules $(fw3 -q device "$ext_device")
 done
 
@@ -79,6 +81,8 @@ lan_iface=$(uci show network|grep "device='br-lan'"|cut -f2 -d'.')
 
 for int_iface in $lan_iface; do
 	# fw3 -q network fails on sub-interfaces => map to device first
-	network_get_device int_device $int_iface
+	network_get_device int_device "$int_iface"
+	[ -z "$int_device" ] && network_get_physdev int_device "$int_iface"
+	[ -z "$int_device" ] && continue
 	add_intzone_rules $(fw3 -q device "$int_device")
 done
