@@ -8,7 +8,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=natter
 PKG_VERSION=0.9
-PKG_RELEASE:=20230120
+PKG_RELEASE:=20230121
 
 PKG_MAINTAINER:=muink <hukk1996@gmail.com>
 PKG_LICENSE:=GPL-3
