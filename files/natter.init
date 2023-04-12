@@ -3,7 +3,7 @@
 #
 # depends bash coreutils-base64
 
-. /lib/functions.sh
+. "${IPKG_INSTROOT}/lib/functions.sh"
 
 START=70
 STOP=90

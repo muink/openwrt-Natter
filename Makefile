@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2022 muink
+# Copyright (C) 2022-2023 muink
 #
 # This is free software, licensed under the GNU General Public License v3.
 # See /LICENSE for more information.
@@ -8,7 +8,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=natter
 PKG_VERSION=0.9
-PKG_RELEASE:=20230121
+PKG_RELEASE:=20230412
 
 PKG_MAINTAINER:=muink <hukk1996@gmail.com>
 PKG_LICENSE:=GPL-3
@@ -45,65 +45,6 @@ define Package/$(PKG_NAME)/conffiles
 endef
 
 define Package/$(PKG_NAME)/postinst
-#!/bin/sh
-[ -x "$$(which nft)" ] && FW='fw4' || FW='fw3'
-white_script() {
-	cat <<-EOF > /etc/$(PKG_NAME)/custom-script.sh
-	#!/bin/sh
-	#
-	EOF
-	sed -n '1,/^echo /{s|^echo .*|# Write your upload script below...|;p}' /usr/share/$(PKG_NAME)/natter-hook.sh >> /etc/$(PKG_NAME)/custom-script.sh
-}
-if [ ! -f /etc/$(PKG_NAME)/custom-script.sh ]; then
-	mkdir -p /etc/$(PKG_NAME) 2>/dev/null
-	white_script
-else
-	mv -f /etc/$(PKG_NAME)/custom-script.sh /etc/$(PKG_NAME)/custom-script.sh.bak
-	sed -Ei "1,/^#+ Write your upload script below.../{s|^|#|g}" /etc/$(PKG_NAME)/custom-script.sh.bak
-	white_script
-	cat /etc/$(PKG_NAME)/custom-script.sh.bak >> /etc/$(PKG_NAME)/custom-script.sh
-fi
-chmod 755 /etc/$(PKG_NAME)/custom-script.sh
-uci show firewall | grep -E "firewall.@rule\[.+\.name='NatTypeTest'" >/dev/null
-if [ "$$?" == "1" ]; then
-	. /lib/functions/network.sh
-	network_find_wan wan_iface
-	for ext_iface in $$wan_iface; do
-		network_get_device ext_device $$ext_iface
-		srczone=$$($$FW -q device "$$ext_device")
-	done
-	section=$$(uci add firewall rule)
-	uci -q batch <<-EOF >/dev/null
-		set firewall.$$section.name='NatTypeTest'
-		set firewall.$$section.src="$$srczone"
-		set firewall.$$section.dest_port='3456'
-		set firewall.$$section.target='ACCEPT'
-		commit firewall
-	EOF
-fi
-uci show luci | grep "name='Test Natter'" >/dev/null
-if [ "$$?" == "1" ]; then
-	section=$$(uci add luci command)
-	uci -q batch <<-EOF >/dev/null
-		set luci.$$section.name='Test Natter'
-		set luci.$$section.command='natter --check-nat 3456'
-		commit luci
-	EOF
-fi
-uci -q batch <<-EOF
-	delete firewall.$(PKG_NAME)
-	set firewall.$(PKG_NAME)=include
-	set firewall.$(PKG_NAME).type=script
-	set firewall.$(PKG_NAME).path=/usr/share/$(PKG_NAME)/$$FW.include
-	commit firewall
-EOF
-if [ "$$FW" == "fw3" ]; then
-uci -q batch <<-EOF
-	set firewall.$(PKG_NAME).family=any
-	set firewall.$(PKG_NAME).reload=1
-	commit firewall
-EOF
-fi
 endef
 
 define Package/$(PKG_NAME)/prerm
@@ -132,6 +73,8 @@ define Package/$(PKG_NAME)/install
 	$(INSTALL_DATA) ./files/natter.hotplug $(1)/etc/hotplug.d/iface/70-$(PKG_NAME)
 	$(INSTALL_DIR) $(1)/usr/share/nftables.d
 	$(CP) ./files/nftables.d/* $(1)/usr/share/nftables.d/
+	$(INSTALL_DIR) $(1)/etc/uci-defaults
+	$(INSTALL_BIN) ./files/uci-defaults $(1)/etc/uci-defaults/70_$(PKG_NAME)
 endef
 
 $(eval $(call BuildPackage,$(PKG_NAME)))
