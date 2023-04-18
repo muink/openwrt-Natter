@@ -10,6 +10,7 @@ if [ ! -f /etc/${PKG_NAME}/custom-script.sh ]; then
 	EOF
 fi
 chmod 755 /etc/${PKG_NAME}/custom-script.sh
+
 uci show firewall | grep -E "firewall.@rule\[.+\.name='NatTypeTest'" >/dev/null
 if [ "$?" == "1" ]; then
 	. /lib/functions/network.sh
@@ -35,18 +36,4 @@ if [ "$?" == "1" ]; then
 		set luci.$section.command='natter --check-nat 3456'
 		commit luci
 	EOF
-fi
-uci -q batch <<-EOF
-	delete firewall.${PKG_NAME}
-	set firewall.${PKG_NAME}=include
-	set firewall.${PKG_NAME}.type=script
-	set firewall.${PKG_NAME}.path=/usr/share/${PKG_NAME}/$FW.include
-	commit firewall
-EOF
-if [ "$FW" == "fw3" ]; then
-uci -q batch <<-EOF
-	set firewall.${PKG_NAME}.family=any
-	set firewall.${PKG_NAME}.reload=1
-	commit firewall
-EOF
 fi
