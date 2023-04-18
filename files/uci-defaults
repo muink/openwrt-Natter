@@ -2,21 +2,12 @@
 PKG_NAME=natter
 [ -x "$(command -v nft)" ] && FW='fw4' || FW='fw3'
 
-white_script() {
+if [ ! -f /etc/${PKG_NAME}/custom-script.sh ]; then
+	mkdir -p /etc/${PKG_NAME} 2>/dev/null
 	cat <<-EOF > /etc/${PKG_NAME}/custom-script.sh
 	#!/bin/sh
 	#
 	EOF
-	sed -n '1,/^echo /{s|^echo .*|# Write your upload script below...|;p}' /usr/share/${PKG_NAME}/natter-hook.sh >> /etc/${PKG_NAME}/custom-script.sh
-}
-if [ ! -f /etc/${PKG_NAME}/custom-script.sh ]; then
-	mkdir -p /etc/${PKG_NAME} 2>/dev/null
-	white_script
-else
-	mv -f /etc/${PKG_NAME}/custom-script.sh /etc/${PKG_NAME}/custom-script.sh.bak
-	sed -Ei "1,/^#+ Write your upload script below.../{s|^|#|g}" /etc/${PKG_NAME}/custom-script.sh.bak
-	white_script
-	cat /etc/${PKG_NAME}/custom-script.sh.bak >> /etc/${PKG_NAME}/custom-script.sh
 fi
 chmod 755 /etc/${PKG_NAME}/custom-script.sh
 uci show firewall | grep -E "firewall.@rule\[.+\.name='NatTypeTest'" >/dev/null
