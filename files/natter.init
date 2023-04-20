@@ -24,6 +24,15 @@ TYPEDSECTION='natter'
 PORTRULES='portrule'
 
 
+validate_section() {
+	uci_load_validate $CONFIG_NAME $TYPEDSECTION "$1" "$2" \
+		'enabled:bool:0' \
+		'log_level:or("debug", "info", "warning", "error"):info' \
+		'keepalive_server:host' \
+		'tcp_stun:list(host)' \
+		'udp_stun:list(host)'
+}
+
 # check_nat [port]
 check_nat() {
 	local n="$(${CHECK} $1 | base64)"
@@ -52,25 +61,11 @@ local outsubnet="$(echo $(for i in $(seq 1 4); do eval "echo \$(( \$(echo $addre
 eval "$1=\$outsubnet"
 }
 
-# init_natter [uci_section]
-init_natter() {
-	mkdir -p "${LOGG%/*}" 2>/dev/null
-	mkdir -p "${CONF%/*}" 2>/dev/null
-	# clear up
-	cat /dev/null > "$LOGG" > "$STAT"
+init_natter_white() {
+	[ "$2" == "0" ] || { >&2 echo "section $1 validation failed"; return 1; }
 
-	[ "$1" == "" ] && return 0
-
-	# init natter conf
-	cp -f "$TEMP" "$CONF"
-
-	local ucivv="log_level keepalive_server"
-
-	for _var in $ucivv; do
-		eval "local $_var=\$(config_get $1 $_var 2>/dev/null)"
-	done
-	local tcp_stun=$(uci -q get $CONFIG_NAME.@$TYPEDSECTION[0].tcp_stun|sed -E "s/('[^']+'|[^' ]+)/'\1'/g; s|''|'|g; s|' '|',\\\n            '|g; s|'|\"|g; s|^|           |")
-	local udp_stun=$(uci -q get $CONFIG_NAME.@$TYPEDSECTION[0].udp_stun|sed -E "s/('[^']+'|[^' ]+)/'\1'/g; s|''|'|g; s|' '|',\\\n            '|g; s|'|\"|g; s|^|           |")
+	tcp_stun=$(echo "$tcp_stun"|sed -E "s/('[^']+'|[^' ]+)/'\1'/g; s|''|'|g; s|' '|',\\\n            '|g; s|'|\"|g; s|^|           |")
+	udp_stun=$(echo "$udp_stun"|sed -E "s/('[^']+'|[^' ]+)/'\1'/g; s|''|'|g; s|' '|',\\\n            '|g; s|'|\"|g; s|^|           |")
 	#config_list_foreach $1 udp_stun echo 2>/dev/null|sed "s|^|\"|g; s|$|\",|g; s|'|\"|g; \${s|,$||}"
 
 	# white conf
@@ -84,6 +79,22 @@ init_natter() {
 	# white stun_server
 	sed -Ei "$(sed -En "/\"stun_server\": \{/,/\},*$/{ /\"tcp\": \[/=}" "$CONF")a\ $tcp_stun" "$CONF"
 	sed -Ei "$(sed -En "/\"stun_server\": \{/,/\},*$/{ /\"udp\": \[/=}" "$CONF")a\ $udp_stun" "$CONF"
+}
+
+# init_natter [white_conf]
+init_natter() {
+	mkdir -p "${LOGG%/*}" 2>/dev/null
+	mkdir -p "${CONF%/*}" 2>/dev/null
+	# clear up
+	cat /dev/null > "$LOGG" > "$STAT"
+
+	[ -n "$1" ] || return 0
+
+	# init natter conf
+	cp -f "$TEMP" "$CONF"
+
+	config_foreach validate_section $TYPEDSECTION init_natter_white || return $?
+
 }
 
 apply_port_rules() {
@@ -283,7 +294,7 @@ start_service() {
 	stop_service
 
 	`check_nat` && NAT_TYPE=1 || NAT_TYPE=#
-	config_foreach init_natter "$TYPEDSECTION"
+	init_natter 1 || return $?
 	apply_port_rules
 	[ $? == 0 ] && natter_launch
 }
@@ -304,7 +315,7 @@ service_triggers() {
 
 stop_service() {
 	for i in $(ps|grep 'natter.py'|grep -v 'grep'|grep -v $$|awk '{print $1}'); do kill -9 "$i" 2>/dev/null; done
-	init_natter
+	init_natter || return $?
 	if   [ "$FW" == "fw4" ]; then
 		nft flush chain inet fw4 natter_input 2>/dev/null
 		nft flush chain inet fw4 natter_prerouting 2>/dev/null
