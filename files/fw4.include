@@ -4,5 +4,5 @@
 #nft list tables
 #nft list table inet fw4
 
-/etc/init.d/natter enabled && /etc/init.d/natter restart
+/etc/init.d/natter enabled && /etc/init.d/natter reload
 exit 0
