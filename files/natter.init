@@ -9,7 +9,7 @@ START=70
 STOP=90
 USE_PROCD=1
 # natter
-[ -x "$(which nft)" ] && FW='fw4' || FW='fw3'
+[ -x "$(command -v  nft)" ] && FW='fw4' || FW='fw3'
 PROG='/usr/sbin/natter'
 HOOK='/usr/share/natter/natter-hook.sh'
 TEMP='/usr/share/natter/natter-config.template.json'
