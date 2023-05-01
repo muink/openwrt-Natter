@@ -4,6 +4,7 @@
 # depends bash coreutils-base64
 
 . "${IPKG_INSTROOT}/lib/functions.sh"
+. "${IPKG_INSTROOT}/lib/functions/network.sh"
 
 START=70
 STOP=90
@@ -113,7 +114,7 @@ init_natter() {
 apply_port_rules_genlist() {
 	[ "$2" == "0" ] || { >&2 echo "section $1 validation failed"; return 1; }
 	[ "$enabled" == "0" ] && return 0
-	[ "$mode" == "via" -a "$NAT_TYPE" == "#" ] && return 0
+	[ "action" == "forward" -a "$mode" == "via"  -a "$NAT_TYPE" == "#" ] && return 0
 
 	local iface bind_ip id=$1 protocols
 	[ -z "$bind_iface" ] && bind_iface='none'
@@ -127,16 +128,19 @@ for iface in $bind_iface; do
 
 for proto in $protocols; do
 	if   [ "$action" == "bind" ]; then
+		[ -z "$bind_port" ] && >&2 echo -e "$(basename $0): bind_port is empty." && return 0
 		# white open_port action==bind id comment *iface bind_port proto
 		eval "open_port_list_$proto=\"\$open_port_list_$proto'\${bind_ip}:\${bind_port}'\n\""
 		# set firewall
 		white_fw_rule 'input' "$id" "$comment" "$proto" "$iface" "$bind_ip" "$bind_port"
 	elif [ "$action" == "forward" ]; then
+		[ -z "$server_ip" ]   && >&2 echo -e "$(basename $0): server_ip is empty." && return 0
+		[ -z "$server_port" ] && >&2 echo -e "$(basename $0): server_port is empty." && return 0
 		if   [ "$mode" == "dnat" ]; then
+			[ -z "$bind_port" ] && >&2 echo -e "$(basename $0): bind_port is empty." && return 0
 			# white forward_port action==forward mode==dnat id comment *iface bind_port proto server_ip server_port
 			eval "open_port_list_$proto=\"\$open_port_list_$proto'\${bind_ip}:\${bind_port}'\n\""
 			# set firewall
-			[ -z "$server_ip" ] && >&2 echo -e "$(basename $0): server_ip is empty." && return 1
 			white_fw_rule 'dnat' "$id" "$comment" "$proto" "$iface" "$bind_ip" "$bind_port" "$server_ip" "$server_port"
 		elif [ "$mode" == "via" ]; then
 			# white forward_port action==forward mode==via id comment proto server_ip server_port
@@ -295,8 +299,6 @@ natter_launch() {
 start_service() {
 	local enabled
 
-	. /lib/functions/network.sh
-
 	config_load "$CONFIG_NAME"
 	eval "enabled=\$CONFIG_${CONFIG_SECTIONS%% *}_enabled"
 	[ "${enabled:=0}" == "0" ] && stop_service && return 1
@@ -323,7 +325,7 @@ service_triggers() {
 }
 
 stop_service() {
-	for i in $(ps|grep 'natter.py'|grep -v 'grep'|grep -v $$|awk '{print $1}'); do kill -9 "$i" 2>/dev/null; done
+	pgrep -f 'natter' | xargs kill -9 
 	init_natter || return $?
 	if   [ "$FW" == "fw4" ]; then
 		nft flush chain inet fw4 natter_input 2>/dev/null
