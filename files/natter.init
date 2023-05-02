@@ -83,6 +83,7 @@ validate_section_portrule() {
 		'bind_ifname:list(network):none' \
 		'bind_port:range(1, 65535)' \
 		'server_ip:ip4addr(1):127.0.0.1' \
+		'follow_pub_port:bool:0' \
 		'server_port:range(1, 65535)' \
 		'proto:or("udp", "tcp", "both"):both'
 }
