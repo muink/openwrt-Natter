@@ -184,6 +184,10 @@ process_portrule() {
 	[ "$enabled" == "0" ] && return 0
 	[ "action" == "forward" -a "$mode" == "via" -a "$NAT_TYPE" == "#" ] && return 0
 
+	if [ "$action" == "forward" -a "$mode" == "dnat" -a "$follow_pub_port" == "1" ]; then
+		server_port=$bind_port # pre-write rule, will be updated by the hook script in the future.
+	fi
+
 	local ifname bind_ip id=$1 protocols
 	[ -z "$bind_ifname" ] && bind_ifname='none'
 	[ "$proto" == "both" ] && protocols="tcp udp" || protocols="$proto"
