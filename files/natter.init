@@ -19,6 +19,8 @@ CHECK='/usr/libexec/natter/natcheck.sh'
 CONF='/var/etc/natter-config.json'
 LOGG='/var/natter/natter.log'
 STAT='/var/natter/natter-status.json'
+NATYPEFIXD='/tmp/natter_type_fixed'
+NATYPERAND='/tmp/natter_type_random'
 # uci
 CONFIG_NAME='natter'
 TYPEDSECTION='natter'
@@ -49,7 +51,12 @@ validate_section_portrule() {
 
 # check_nat [port]
 check_nat() {
-	local n="$(${CHECK} $1 | base64)"
+	local port=${1:-0} typefile
+	[ -n "$1" ] && typefile="$NATYPEFIXD" || typefile="$NATYPERAND"
+
+	[ -f "$typefile" ] || "${CHECK}" "$port" "$typefile"
+	local n="$(cat "$typefile" | base64)"
+
 	[ "$n" == "VURQOiBGdWxsIGNvbmUgKE5BVCAxKSAKVENQOiBDb25lIE5BVCAK" -o \
 	  "$n" == "VURQOiBPcGVuIEludGVybmV0IApUQ1A6IENvbmUgTkFUIAo=" ] && return 0 || return 1
 }
