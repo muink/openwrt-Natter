@@ -332,7 +332,7 @@ service_triggers() {
 }
 
 stop_service() {
-	pgrep -f 'natter.py' | xargs kill -9 
+	pgrep -f 'natter.py' | xargs kill -9 >/dev/null 2>&1 
 	init_natter || return $?
 	if   [ "$FW" == "fw4" ]; then
 		nft flush chain inet fw4 natter_input 2>/dev/null
