@@ -52,6 +52,16 @@ define_nic() {
 	return 0
 }
 
+# define global var: ${TYPEDSECTION^^}_*
+define_common() {
+	[ "$2" == "0" ] || { >&2 echo "$(basename $0): section $1 validation failed"; return 1; }
+
+	local v ucivv="log_level keepalive_server tcp_stun udp_stun"
+	for v in $ucivv; do
+		eval "${TYPEDSECTION^^}_$v=\"\$(config_get $1 $v)\""
+	done
+}
+
 validate_section() {
 	uci_load_validate $CONFIG_NAME $TYPEDSECTION "$1" "$2" \
 		'enabled:bool:0' \
@@ -352,6 +362,7 @@ start_service() {
 	`check_nat $FIXED_PORT` || >&2 echo -e "$(basename $0): Fixed port test failed, Natter may not work on your network.\n\tPlease check whether your router allows\n\tincoming connections on port ${FIXED_PORT}." && return 1
 	`check_nat` && NAT_TYPE=1 || NAT_TYPE=#
 	define_nic
+	config_foreach validate_section "$TYPEDSECTION" define_common || return $?
 
 	init_natter 1 || return $?
 	apply_port_rules || return $?
