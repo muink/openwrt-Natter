@@ -11,6 +11,7 @@ STOP=90
 USE_PROCD=1
 # natter
 [ -x "$(command -v  nft)" ] && FW='fw4' || FW='fw3'
+FIXED_PORT=3456
 PROG='/usr/sbin/natter'
 HOOK='/usr/share/natter/natter-hook.sh'
 TEMP='/usr/share/natter/natter-config.template.json'
@@ -26,6 +27,30 @@ CONFIG_NAME='natter'
 TYPEDSECTION='natter'
 PORTRULES='portrule'
 
+config_load "$CONFIG_NAME"
+
+
+# define global var: DEF_WAN NIC_*
+define_nic() {
+	local wans wan dev
+	# get all active Wan NICs
+	for i in $(uci -q show firewall|sed -En "s|.+@zone\[(\d+)\].masq='1'|\1|p"); do
+		wans=$(uci -q get firewall.@zone[$i].network)
+		for wan in $wans; do
+			network_get_device dev $wan
+			[ -n "$dev" ] && network_get_ipaddr NIC_$dev $wan # NIC_eth1=122.177.122.177
+		done
+	done
+	# get br-lan NICs
+	local tmp dev='br-lan'
+	network_get_subnet tmp $(uci show network|grep "device='br-lan'"|cut -f2 -d'.'|head -1) # NIC_br-lan=192.168.1.1/24
+	NIC_$dev="$tmp"
+	# get default gateway 0.0.0.0
+	network_find_wan wan true
+	network_get_device DEF_WAN $wan
+
+	return 0
+}
 
 validate_section() {
 	uci_load_validate $CONFIG_NAME $TYPEDSECTION "$1" "$2" \
@@ -59,6 +84,13 @@ check_nat() {
 
 	[ "$n" == "VURQOiBGdWxsIGNvbmUgKE5BVCAxKSAKVENQOiBDb25lIE5BVCAK" -o \
 	  "$n" == "VURQOiBPcGVuIEludGVybmV0IApUQ1A6IENvbmUgTkFUIAo=" ] && return 0 || return 1
+}
+
+# get_nic_subnet <nic>
+get_nic_subnet() {
+	[ -n "$1" ] || return 1
+
+	ip -4 -o addr | sed -En "s|^\d+:\s*${1}\s+inet\s+(\S+).*|\1|p"
 }
 
 # subnet_format <destination variable> <subnet>
@@ -313,12 +345,14 @@ natter_launch() {
 start_service() {
 	local enabled
 
-	config_load "$CONFIG_NAME"
 	eval "enabled=\$CONFIG_${CONFIG_SECTIONS%% *}_enabled"
-	[ "${enabled:=0}" == "0" ] && stop_service && return 1
-	stop_service
+	[ "${enabled:=0}" == "0" ] && return 1
 
+	# defined init
+	`check_nat $FIXED_PORT` || >&2 echo -e "$(basename $0): Fixed port test failed, Natter may not work on your network.\n\tPlease check whether your router allows\n\tincoming connections on port ${FIXED_PORT}." && return 1
 	`check_nat` && NAT_TYPE=1 || NAT_TYPE=#
+	define_nic
+
 	init_natter 1 || return $?
 	apply_port_rules || return $?
 	[ $? == 0 ] && natter_launch
