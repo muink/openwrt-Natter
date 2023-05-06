@@ -82,6 +82,13 @@ local outsubnet="$(echo $(for i in $(seq 1 4); do eval "echo \$(( \$(echo $addre
 eval "$1=\$outsubnet"
 }
 
+clean_runtime_files() {
+	mkdir -p "${LOGG%/*}" 2>/dev/null
+	mkdir -p "${STAT%/*}" 2>/dev/null
+	# clear up
+	cat /dev/null > "$LOGG" > "$STAT"
+}
+
 init_natter_white() {
 	[ "$2" == "0" ] || { >&2 echo "section $1 validation failed"; return 1; }
 
@@ -332,8 +339,7 @@ service_triggers() {
 }
 
 stop_service() {
-	pgrep -f 'natter.py' | xargs kill -9 >/dev/null 2>&1 
-	init_natter || return $?
+	clean_runtime_files
 	if   [ "$FW" == "fw4" ]; then
 		nft flush chain inet fw4 natter_input 2>/dev/null
 		nft flush chain inet fw4 natter_prerouting 2>/dev/null
@@ -347,6 +353,6 @@ stop_service() {
 	fi
 }
 
-restart() {
-	start
+reload_service() {
+	restart
 }
