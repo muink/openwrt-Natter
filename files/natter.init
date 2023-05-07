@@ -175,10 +175,10 @@ gen_base_conf() {
 	json_dump
 }
 
-apply_port_rules_genlist() {
-	[ "$2" == "0" ] || { >&2 echo "section $1 validation failed"; return 1; }
+process_portrule() {
+	[ "$2" == "0" ] || { >&2 echo "$(basename $0): section $1 validation failed"; return 1; }
 	[ "$enabled" == "0" ] && return 0
-	[ "action" == "forward" -a "$mode" == "via"  -a "$NAT_TYPE" == "#" ] && return 0
+	[ "action" == "forward" -a "$mode" == "via" -a "$NAT_TYPE" == "#" ] && return 0
 
 	local iface bind_ip id=$1 protocols
 	[ -z "$bind_iface" ] && bind_iface='none'
@@ -187,46 +187,38 @@ apply_port_rules_genlist() {
 for iface in $bind_iface; do
 
 	[ "$iface" == "none" ] && iface=''
-	[ -z "$iface" ] && bind_ip='0.0.0.0' || bind_ip="$(ip -4 -o addr|grep "$iface"|sed -En "s|.+inet ([^/]+)/\d{1,2}.+|\1|p")"
+	#[ -z "$iface" ] && bind_ip='0.0.0.0' || bind_ip="$(ip -4 -o addr|grep "$iface"|sed -En "s|.+inet ([^/]+)/\d{1,2}.+|\1|p")"
+	[ -z "$iface" ] && eval "bind_ip=\"\${NIC_${DEF_WAN//-/_}%/*}\"" || eval "bind_ip=\"\${NIC_${iface//-/_}%/*}\""
 	[ -z "$bind_ip" ] && continue
 
 for proto in $protocols; do
 	if   [ "$action" == "bind" ]; then
 		[ -z "$bind_port" ] && >&2 echo -e "$(basename $0): bind_port is empty." && return 0
-		# white open_port action==bind id comment *iface bind_port proto
-		eval "open_port_list_$proto=\"\$open_port_list_$proto'\${bind_ip}:\${bind_port}'\n\""
+
+		# gen conf
+		eval "open_port_$proto=\"\${open_port_$proto:+\$open_port_$proto, }'\${bind_ip}:\${bind_port}'\""
 		# set firewall
-		white_fw_rule 'input' "$id" "$comment" "$proto" "$iface" "$bind_ip" "$bind_port"
+		white_fw_rule 'input' "$id" "$comment" "$proto" "${iface:-$DEF_WAN}" "$bind_ip" "$bind_port"
 	elif [ "$action" == "forward" ]; then
 		[ -z "$server_ip" ]   && >&2 echo -e "$(basename $0): server_ip is empty." && return 0
 		[ -z "$server_port" ] && >&2 echo -e "$(basename $0): server_port is empty." && return 0
 		if   [ "$mode" == "dnat" ]; then
 			[ -z "$bind_port" ] && >&2 echo -e "$(basename $0): bind_port is empty." && return 0
-			# white forward_port action==forward mode==dnat id comment *iface bind_port proto server_ip server_port
-			eval "open_port_list_$proto=\"\$open_port_list_$proto'\${bind_ip}:\${bind_port}'\n\""
+
+			# gen conf
+			eval "open_port_$proto=\"\${open_port_$proto:+\$open_port_$proto, }'\${bind_ip}:\${bind_port}'\""
 			# set firewall
-			white_fw_rule 'dnat' "$id" "$comment" "$proto" "$iface" "$bind_ip" "$bind_port" "$server_ip" "$server_port"
+			white_fw_rule 'dnat' "$id" "$comment" "$proto" "${iface:-$DEF_WAN}" "$bind_ip" "$bind_port" "$server_ip" "$server_port"
 		elif [ "$mode" == "via" ]; then
-			# white forward_port action==forward mode==via id comment proto server_ip server_port
 			[ "$server_ip" == "0.0.0.0" ] && server_ip='127.0.0.1'
-			eval "forward_port_list_$proto=\"\$forward_port_list_$proto'\${server_ip}:\${server_port}'\n\""
+
+			# gen conf
+			eval "forward_port_$proto=\"\${forward_port_$proto:+\$forward_port_$proto, }'\${server_ip}:\${server_port}'\""
 		fi
 	fi
 done
 
 done
-}
-
-apply_port_rules() {
-	local open_port_list_tcp open_port_list_udp forward_port_list_tcp forward_port_list_udp
-
-	config_foreach validate_section_portrule "$PORTRULES" apply_port_rules_genlist || return $?
-
-# white conf
-sed -Ei "$(sed -En "/\"open_port\": \{/,/\},*$/{ /\"tcp\": \[/=}" "$CONF")a\ $(echo $(echo -e "$open_port_list_tcp"|sort -u)|sed "s|' '|',\\\n            '|g; s|^'|           '|; s|'|\"|g")" "$CONF"
-sed -Ei "$(sed -En "/\"open_port\": \{/,/\},*$/{ /\"udp\": \[/=}" "$CONF")a\ $(echo $(echo -e "$open_port_list_udp"|sort -u)|sed "s|' '|',\\\n            '|g; s|^'|           '|; s|'|\"|g")" "$CONF"
-sed -Ei "$(sed -En "/\"forward_port\": \{/,/\},*$/{ /\"tcp\": \[/=}" "$CONF")a\ $(echo $(echo -e "$forward_port_list_tcp"|sort -u)|sed "s|' '|',\\\n            '|g; s|^'|           '|; s|'|\"|g")" "$CONF"
-sed -Ei "$(sed -En "/\"forward_port\": \{/,/\},*$/{ /\"udp\": \[/=}" "$CONF")a\ $(echo $(echo -e "$forward_port_list_udp"|sort -u)|sed "s|' '|',\\\n            '|g; s|^'|           '|; s|'|\"|g")" "$CONF"
 }
 
 clean_fw_rules() {
@@ -356,7 +348,15 @@ reconfigure() {
 	clean_conf_files
 	clean_fw_rules
 
-	local base_json="$(gen_base_conf)"
+	local base_conf="$(gen_base_conf)" dyn_conf={}
+	local open_port_tcp open_port_udp forward_port_tcp forward_port_udp
+	config_foreach validate_section_portrule "$PORTRULES" process_portrule || return $?
+	json_cleanup
+	json_load "$(echo "$base_conf"|sed "s| }$|, \
+		'open_port': { 'tcp': [ $open_port_tcp ], 'udp': [ $open_port_udp ] }, \
+		'forward_port': { 'tcp': [ $forward_port_tcp ], 'udp': [ $forward_port_udp ] } \
+	}|")"
+	json_dump > "$CONF"
 }
 
 natter_launch() {
@@ -394,7 +394,6 @@ start_service() {
 	config_foreach validate_section "$TYPEDSECTION" define_common || return $?
 
 	reconfigure || return $?
-	apply_port_rules || return $?
 	[ $? == 0 ] && natter_launch
 }
 
