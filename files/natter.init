@@ -1,5 +1,5 @@
-#!/bin/sh /etc/rc.common
-# Copyright (C) 2022 muink
+#!/bin/bash /etc/rc.common
+# Copyright (C) 2022-2023 muink
 #
 # depends bash coreutils-base64
 
@@ -352,17 +352,18 @@ natter_launch() {
 start_service() {
 	local enabled
 
+	clean_runtime_files
 	eval "enabled=\$CONFIG_${CONFIG_SECTIONS%% *}_enabled"
 	[ "${enabled:=0}" == "0" ] && return 1
 
 	# defined init
-	`check_nat $FIXED_PORT` || >&2 echo -e "$(basename $0): Fixed port test failed, Natter may not work on your network.\n\tPlease check whether your router allows\n\tincoming connections on port ${FIXED_PORT}." && return 1
+	`check_nat $FIXED_PORT` || { >&2 echo -e "$(basename $0): Fixed port test failed, Natter may not work on your network.\n\tPlease check whether your router allows\n\tincoming connections on port ${FIXED_PORT}."; return 1; }
 	`check_nat` && NAT_TYPE=1 || NAT_TYPE=#
 	define_nic
 	config_foreach validate_section "$TYPEDSECTION" define_common || return $?
 
 	reconfigure || return $?
-	[ $? == 0 ] && natter_launch
+	natter_launch
 }
 
 service_triggers() {
@@ -386,8 +387,4 @@ stop_service() {
 	clean_conf_files
 	clean_fw_rules
 	return 0
-}
-
-reload_service() {
-	restart
 }
