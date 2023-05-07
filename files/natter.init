@@ -353,6 +353,13 @@ get_wan_on_list() {
 echo $defined_device
 }
 
+reconfigure() {
+	clean_conf_files
+	clean_fw_rules
+
+	local base_json="$(gen_base_conf)"
+}
+
 natter_launch() {
 	if   [ "$FW" == "fw4" ]; then
 		nft -s -t -n list chain inet fw4 natter_input >/dev/null 2>&1 || fw4 reload
@@ -387,7 +394,7 @@ start_service() {
 	define_nic
 	config_foreach validate_section "$TYPEDSECTION" define_common || return $?
 
-	init_natter 1 || return $?
+	reconfigure || return $?
 	apply_port_rules || return $?
 	[ $? == 0 ] && natter_launch
 }
