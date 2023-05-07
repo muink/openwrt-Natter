@@ -141,40 +141,39 @@ clean_conf_files() {
 	#cp -f "$TEMP" "$CONF"
 }
 
-init_natter_white() {
-	[ "$2" == "0" ] || { >&2 echo "section $1 validation failed"; return 1; }
+gen_base_conf() {
+	local tmp key var val
 
-	tcp_stun=$(echo "$tcp_stun"|sed -E "s/('[^']+'|[^' ]+)/'\1'/g; s|''|'|g; s|' '|',\\\n            '|g; s|'|\"|g; s|^|           |")
-	udp_stun=$(echo "$udp_stun"|sed -E "s/('[^']+'|[^' ]+)/'\1'/g; s|''|'|g; s|' '|',\\\n            '|g; s|'|\"|g; s|^|           |")
-	#config_list_foreach $1 udp_stun echo 2>/dev/null|sed "s|^|\"|g; s|$|\",|g; s|'|\"|g; \${s|,$||}"
-
-	# white conf
-	sed -Ei " \
-		/\"logging\": \{/,/\},*$/{s|(\"level\": \")([^\"]*)|\1$log_level|; s|(\"log_file\": \")([^\"]*)|\1$LOGG|}; \
-		/\"status_report\": \{/,/\},*$/{s|./natter-hook.sh|$HOOK|; s|(\"status_file\": \")([^\"]*)|\1$STAT|}; \
-		s|(\"keep_alive\": \")([^\"]*)|\1$keepalive_server|; \
-		/\"tcp\": \[/,/\],*$/{/\"[^\"]+\",*$/d}; \
-		/\"udp\": \[/,/\],*$/{/\"[^\"]+\",*$/d}; \
-	" "$CONF"
-	# white stun_server
-	sed -Ei "$(sed -En "/\"stun_server\": \{/,/\},*$/{ /\"tcp\": \[/=}" "$CONF")a\ $tcp_stun" "$CONF"
-	sed -Ei "$(sed -En "/\"stun_server\": \{/,/\},*$/{ /\"udp\": \[/=}" "$CONF")a\ $udp_stun" "$CONF"
-}
-
-# init_natter [white_conf]
-init_natter() {
-	mkdir -p "${LOGG%/*}" 2>/dev/null
-	mkdir -p "${CONF%/*}" 2>/dev/null
-	# clear up
-	cat /dev/null > "$LOGG" > "$STAT"
-
-	[ -n "$1" ] || return 0
-
-	# init natter conf
-	cp -f "$TEMP" "$CONF"
-
-	config_foreach validate_section $TYPEDSECTION init_natter_white || return $?
-
+	# get snippet of template
+	json_load_file "$TEMP"
+	json_select "logging"
+		eval "json_add_string \"level\" \"\$${TYPEDSECTION^^}_log_level\""
+		json_add_string "log_file" "$LOGG"
+	json_close_object
+	json_select "status_report"
+		json_get_var val "hook"
+		json_add_string "hook" "$(echo "$val"|sed "s|./natter-hook.sh|$HOOK|")"
+		json_add_string "status_file" "$LOGG"
+	json_close_object
+	json_add_null "open_port"
+	json_add_null "forward_port"
+	json_add_null "stun_server"
+	json_add_null "keep_alive"
+	tmp="$(json_dump | sed -E 's|\s*"[^"]+": null,?||g')"
+	# set stun_server keep_alive
+	json_cleanup
+	json_load "$tmp"
+	json_add_object "stun_server"
+		for key in tcp udp; do
+			json_add_array "$key"
+			for val in $(eval "echo \"\$${TYPEDSECTION^^}_${key}_stun\""); do
+				json_add_string "" "$val"
+			done
+			json_close_array
+		done
+	json_close_object
+	eval "json_add_string \"keep_alive\" \"\$${TYPEDSECTION^^}_keepalive_server\""
+	json_dump
 }
 
 apply_port_rules_genlist() {
