@@ -18,6 +18,7 @@ TEMP='/usr/share/natter/natter-config.template.json'
 SCRIPT='/etc/natter/custom-script.sh'
 CHECK='/usr/libexec/natter/natcheck.sh'
 CONF='/var/etc/natter-config.json'
+DYNCONF='/var/etc/natter-dynconf.json'
 LOGG='/var/natter/natter.log'
 STAT='/var/natter/natter-status.json'
 NATYPEFIXD='/tmp/natter_type_fixed'
@@ -131,6 +132,15 @@ clean_runtime_files() {
 	cat /dev/null > "$LOGG" > "$STAT"
 }
 
+clean_conf_files() {
+	mkdir -p "${CONF%/*}" 2>/dev/null
+	mkdir -p "${DYNCONF%/*}" 2>/dev/null
+	# clear up
+	cat /dev/null > "$CONF" > "$DYNCONF"
+	# old init natter conf method
+	#cp -f "$TEMP" "$CONF"
+}
+
 init_natter_white() {
 	[ "$2" == "0" ] || { >&2 echo "section $1 validation failed"; return 1; }
 
@@ -219,6 +229,20 @@ sed -Ei "$(sed -En "/\"open_port\": \{/,/\},*$/{ /\"tcp\": \[/=}" "$CONF")a\ $(e
 sed -Ei "$(sed -En "/\"open_port\": \{/,/\},*$/{ /\"udp\": \[/=}" "$CONF")a\ $(echo $(echo -e "$open_port_list_udp"|sort -u)|sed "s|' '|',\\\n            '|g; s|^'|           '|; s|'|\"|g")" "$CONF"
 sed -Ei "$(sed -En "/\"forward_port\": \{/,/\},*$/{ /\"tcp\": \[/=}" "$CONF")a\ $(echo $(echo -e "$forward_port_list_tcp"|sort -u)|sed "s|' '|',\\\n            '|g; s|^'|           '|; s|'|\"|g")" "$CONF"
 sed -Ei "$(sed -En "/\"forward_port\": \{/,/\},*$/{ /\"udp\": \[/=}" "$CONF")a\ $(echo $(echo -e "$forward_port_list_udp"|sort -u)|sed "s|' '|',\\\n            '|g; s|^'|           '|; s|'|\"|g")" "$CONF"
+}
+
+clean_fw_rules() {
+	if   [ "$FW" == "fw4" ]; then
+		nft flush chain inet fw4 natter_input 2>/dev/null
+		nft flush chain inet fw4 natter_prerouting 2>/dev/null
+		nft flush chain inet fw4 natter_preloopback 2>/dev/null
+		nft flush chain inet fw4 natter_postloopback 2>/dev/null
+	elif [ "$FW" == "fw3" ]; then
+		iptables -t filter -F NATTER 2>/dev/null
+		iptables -t nat -F NATTER-PREROUTING 2>/dev/null
+		iptables -t nat -F NATTER-PRELOOPBACK 2>/dev/null
+		iptables -t nat -F NATTER-POSTLOOPBACK 2>/dev/null
+	fi
 }
 
 # white_fw_rule <type> <id> <comment> <proto> <bind_iface> <bind_ip> <bind_port> [server_ip] [server_port]
@@ -385,17 +409,8 @@ service_triggers() {
 
 stop_service() {
 	clean_runtime_files
-	if   [ "$FW" == "fw4" ]; then
-		nft flush chain inet fw4 natter_input 2>/dev/null
-		nft flush chain inet fw4 natter_prerouting 2>/dev/null
-		nft flush chain inet fw4 natter_preloopback 2>/dev/null
-		nft flush chain inet fw4 natter_postloopback 2>/dev/null
-	elif [ "$FW" == "fw3" ]; then
-		iptables -t filter -F NATTER 2>/dev/null
-		iptables -t nat -F NATTER-PREROUTING 2>/dev/null
-		iptables -t nat -F NATTER-PRELOOPBACK 2>/dev/null
-		iptables -t nat -F NATTER-POSTLOOPBACK 2>/dev/null
-	fi
+	clean_conf_files
+	clean_fw_rules
 }
 
 reload_service() {
