@@ -295,26 +295,18 @@ case "$FW" in
 esac
 }
 
-get_wan_on_list() {
-	local defined_device= ext_device
+get_bind_ifnames() {
+	local defined_device ext_device
 
 	for ext_device in $(uci -q show $CONFIG_NAME|grep 'bind_ifname'|sed -E "s|.+@$PORTRULES\[(\d+)\].+'([^']+)'$|\1:\2|"); do
 		if [ "$(uci -q get $CONFIG_NAME.@$PORTRULES[${ext_device%%:*}].enabled)" == "1" ]; then
 			[ -n "$(echo "$defined_device"|grep "${ext_device##*:}")" ] && continue
-			defined_device="$defined_device ${ext_device##*:}"
+			[ -e "/sys/class/net/${ext_device##*:}" ] || continue
+			defined_device="${defined_device:+$defined_device }${ext_device##*:}"
 		fi
 	done
 
-	local wan_iface ext_iface
-	network_find_wan wan_iface
-
-	for ext_iface in $wan_iface; do
-		network_get_device ext_device "$ext_iface"
-		[ -z "$ext_device" ] && network_get_physdev ext_device "$ext_iface"
-		[ -z "$ext_device" ] && continue
-		[ -n "$(echo "$defined_device"|grep "$ext_device")" ] && continue
-		defined_device="$defined_device $ext_device"
-	done
+	[ -n "$(echo "$defined_device"|grep "$DEF_WAN")" ] || defined_device="${defined_device:+$defined_device }$DEF_WAN"
 
 echo $defined_device
 }
@@ -344,8 +336,9 @@ natter_launch() {
 	procd_open_instance
 	procd_set_param command "$PROG"
 	procd_append_param command -c "$CONF"
-	procd_append_param netdev "br-lan"
-	for ifname in $(get_wan_on_list); do
+	procd_set_param file "$CONF"
+	procd_set_param netdev "br-lan"
+	for ifname in $(get_bind_ifnames); do
 		procd_append_param netdev "$ifname"
 	done
 	procd_set_param respawn
@@ -375,12 +368,14 @@ start_service() {
 service_triggers() {
 	procd_add_reload_trigger "$CONFIG_NAME" 'network' 'firewall'
 
+	define_nic
 	local iface ifname
 
 	iface=$(uci show network|grep "device='br-lan'"|cut -f2 -d'.'|head -n1)
 	[ -n "$iface" ] && procd_add_interface_trigger "interface.*.up" "$iface" /etc/init.d/natter reload
+					 # procd_add_reload_interface_trigger "$iface" # "interface.*.up" and "interface.*.down"
 
-	for ifname in $(get_wan_on_list); do
+	for ifname in $(get_bind_ifnames); do
 		iface=$(uci show network|grep "device='$ifname'"|cut -f2 -d'.'|head -n1)
 		[ -n "$iface" ] && procd_add_interface_trigger "interface.*.up" "$iface" /etc/init.d/natter reload
 	done
