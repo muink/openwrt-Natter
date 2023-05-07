@@ -39,13 +39,12 @@ define_nic() {
 		wans=$(uci -q get firewall.@zone[$i].network)
 		for wan in $wans; do
 			network_get_device dev $wan
-			[ -n "$dev" ] && network_get_ipaddr NIC_$dev $wan # NIC_eth1=122.177.122.177
+			[ -n "$dev" ] && network_get_subnet NIC_${dev//-/_} $wan # NIC_eth1=122.177.122.177/24
 		done
 	done
 	# get br-lan NICs
-	local tmp dev='br-lan'
-	network_get_subnet tmp $(uci show network|grep "device='br-lan'"|cut -f2 -d'.'|head -1) # NIC_br-lan=192.168.1.1/24
-	NIC_$dev="$tmp"
+	dev='br-lan'
+	network_get_subnet NIC_${dev//-/_} $(uci show network|grep "device='$dev'"|cut -f2 -d'.'|head -1) # NIC_br_lan=192.168.1.1/24
 	# get default gateway 0.0.0.0
 	network_find_wan wan true
 	network_get_device DEF_WAN $wan
@@ -153,7 +152,7 @@ gen_base_conf() {
 	json_select "status_report"
 		json_get_var val "hook"
 		json_add_string "hook" "$(echo "$val"|sed "s|./natter-hook.sh|$HOOK|")"
-		json_add_string "status_file" "$LOGG"
+		json_add_string "status_file" "$STAT"
 	json_close_object
 	json_add_null "open_port"
 	json_add_null "forward_port"
@@ -417,6 +416,7 @@ stop_service() {
 	clean_runtime_files
 	clean_conf_files
 	clean_fw_rules
+	return 0
 }
 
 reload_service() {
