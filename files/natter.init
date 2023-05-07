@@ -185,6 +185,8 @@ process_portrule() {
 	[ "action" == "forward" -a "$mode" == "via" -a "$NAT_TYPE" == "#" ] && return 0
 
 	if [ "$action" == "forward" -a "$mode" == "dnat" -a "$follow_pub_port" == "1" ]; then
+		# write dyn_conf
+		dyn_content="${dyn_content:+$dyn_content, }'$1': { 'id': '$1', 'comment': '$comment', 'loopback': $loopback, 'proto': '$proto', 'bind_ifname': [ '${bind_ifname// /\', \'}' ], 'bind_port': $bind_port, 'server_ip': '$server_ip' }"
 		server_port=$bind_port # pre-write rule, will be updated by the hook script in the future.
 	fi
 
@@ -327,7 +329,7 @@ echo $defined_device
 }
 
 reconfigure() {
-	local base_conf="$(gen_base_conf)" dyn_conf={}
+	local base_conf="$(gen_base_conf)" dyn_content
 	local open_port_tcp open_port_udp forward_port_tcp forward_port_udp
 	config_foreach validate_section_portrule "$PORTRULES" process_portrule || return $?
 	json_cleanup
@@ -336,6 +338,9 @@ reconfigure() {
 		'forward_port': { 'tcp': [ $forward_port_tcp ], 'udp': [ $forward_port_udp ] } \
 	}|")"
 	json_dump > "$CONF"
+	json_cleanup
+	json_load "{ $dyn_content }"
+	json_dump > "$DYNCONF"
 }
 
 natter_launch() {
