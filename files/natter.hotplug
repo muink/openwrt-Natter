@@ -18,9 +18,9 @@ PORTRULES='portrule'
 rule_count=$(uci show $CONFIG_NAME|grep "$PORTRULES"|tail -n1|sed -En "s|.+@.+\[(.+)\].+|\1|p")
 
 for i in $(seq 0 1 $rule_count); do
-	bind_iface="$(uci -q get $CONFIG_NAME.@$PORTRULES[$i].bind_iface)"
-	[ -n "$bind_iface" ] && {
-		[ "$DEVICE" == "$bind_iface" ] && break
+	bind_ifname="$(uci -q get $CONFIG_NAME.@$PORTRULES[$i].bind_ifname)"
+	[ -n "$bind_ifname" ] && {
+		[ "$DEVICE" == "$bind_ifname" ] && break
 	} || continue
 	[ "$i" -eq "$rule_count" ] && exit 0
 done
