@@ -60,6 +60,8 @@ define_common() {
 	for v in $ucivv; do
 		eval "${TYPEDSECTION^^}_$v=\"\$(config_get $1 $v)\""
 	done
+
+	return 0
 }
 
 validate_section() {
@@ -77,7 +79,7 @@ validate_section_portrule() {
 		'comment:string' \
 		'action:or("bind", "forward"):bind' \
 		'mode:or("dnat", "via"):dnat' \
-		'bind_ifname:list(network)' \
+		'bind_ifname:list(network):none' \
 		'bind_port:range(1, 65535)' \
 		'server_ip:ip4addr(1):127.0.0.1' \
 		'server_port:range(1, 65535)' \
@@ -219,6 +221,8 @@ for proto in $protocols; do
 done
 
 done
+
+return 0
 }
 
 clean_fw_rules() {
@@ -312,9 +316,6 @@ echo $defined_device
 }
 
 reconfigure() {
-	clean_conf_files
-	clean_fw_rules
-
 	local base_conf="$(gen_base_conf)" dyn_conf={}
 	local open_port_tcp open_port_udp forward_port_tcp forward_port_udp
 	config_foreach validate_section_portrule "$PORTRULES" process_portrule || return $?
@@ -352,7 +353,7 @@ natter_launch() {
 start_service() {
 	local enabled
 
-	clean_runtime_files
+	stop_service
 	eval "enabled=\$CONFIG_${CONFIG_SECTIONS%% *}_enabled"
 	[ "${enabled:=0}" == "0" ] && return 1
 
@@ -383,6 +384,7 @@ service_triggers() {
 }
 
 stop_service() {
+	pgrep -f 'natter.py' | xargs kill -9 >/dev/null 2>&1 
 	clean_runtime_files
 	clean_conf_files
 	clean_fw_rules
