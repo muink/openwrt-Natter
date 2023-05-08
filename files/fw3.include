@@ -55,8 +55,9 @@ defined_device=
 for ext_device in $(uci -q show $CONFIG_NAME|grep 'bind_ifname'|sed -E "s|.+@$PORTRULES\[(\d+)\].+'([^']+)'$|\1:\2|"); do
 	if [ "$(uci -q get $CONFIG_NAME.@$PORTRULES[${ext_device%%:*}].enabled)" == "1" ]; then
 		[ -n "$(echo "$defined_device"|grep "${ext_device##*:}")" ] && continue
+		[ -e "/sys/class/net/${ext_device##*:}" ] || continue
 		add_extzone_rules $(fw3 -q device "${ext_device##*:}")
-		defined_device="$defined_device ${ext_device##*:}"
+		defined_device="${defined_device:+$defined_device }${ext_device##*:}"
 	fi
 done
 
@@ -74,6 +75,7 @@ for ext_iface in $wan_iface; do
 	[ -z "$ext_device" ] && network_get_physdev ext_device "$ext_iface"
 	[ -z "$ext_device" ] && continue
 	[ -n "$(echo "$defined_device"|grep "$ext_device")" ] && continue
+	[ -e "/sys/class/net/${ext_device##*:}" ] || continue
 	add_extzone_rules $(fw3 -q device "$ext_device")
 done
 
