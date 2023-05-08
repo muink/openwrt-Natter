@@ -10,6 +10,11 @@
 START=70
 STOP=90
 USE_PROCD=1
+
+EXTRA_COMMANDS="refresh"
+EXTRA_HELP=\
+"	refresh <protocol> <open_ip> <open_port> <pub_port>			Refresh Dynamic Rules"
+
 # natter
 [ -x "$(command -v  nft)" ] && FW='fw4' || FW='fw3'
 FIXED_PORT=3456
@@ -398,6 +403,11 @@ service_triggers() {
 		iface=$(uci show network|grep "device='$ifname'"|cut -f2 -d'.'|head -n1)
 		[ -n "$iface" ] && procd_add_interface_trigger "interface.*.up" "$iface" /etc/init.d/natter reload
 	done
+}
+
+# refresh <protocol> <open_ip> <open_port> <pub_port>
+refresh() {
+	return 0
 }
 
 stop_service() {
