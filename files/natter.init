@@ -76,7 +76,7 @@ validate_section() {
 validate_section_portrule() {
 	uci_load_validate $CONFIG_NAME $PORTRULES "$1" "$2" \
 		'enabled:bool:0' \
-		'comment:string' \
+		'comment:uciname' \
 		'action:or("bind", "forward"):bind' \
 		'mode:or("dnat", "via"):dnat' \
 		'bind_ifname:list(network):none' \
