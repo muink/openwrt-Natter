@@ -1,0 +1,20 @@
+From 890135042e71f8c00b986fc7fb9697d92a882ace Mon Sep 17 00:00:00 2001
+From: Anya Lin <hukk1996@gmail.com>
+Date: Mon, 8 May 2023 14:51:08 +0100
+Subject: [PATCH] add custom script
+
+---
+ natter-hook.sh | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/natter-hook.sh b/natter-hook.sh
+index b68227e..9cac460 100644
+--- a/natter-hook.sh
++++ b/natter-hook.sh
+@@ -6,4 +6,4 @@ outter_port=$5
+ 
+ echo "[Script] - Upload to server: ${protocol}: ${inner_ip}:${inner_port} -> ${outter_ip}:${outter_port}"
+ 
+-# Write your upload script below...
++/etc/natter/custom-script.sh "$@"
+
