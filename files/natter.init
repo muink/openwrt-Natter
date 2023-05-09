@@ -1,10 +1,11 @@
 #!/bin/bash /etc/rc.common
 # Copyright (C) 2022-2023 muink
 #
-# depends bash coreutils-base64
+# depends bash coreutils-base64 jsonfilter
 
 . "${IPKG_INSTROOT}/lib/functions.sh"
 . "${IPKG_INSTROOT}/lib/functions/network.sh"
+. "${IPKG_INSTROOT}/usr/share/libubox/jshn.sh"
 
 START=70
 STOP=90
