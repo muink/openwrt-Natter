@@ -209,7 +209,7 @@ for proto in $protocols; do
 		# gen conf
 		eval "open_port_$proto=\"\${open_port_$proto:+\$open_port_$proto, }'\${bind_ip}:\${bind_port}'\""
 		# set firewall
-		white_fw_rule 'input' "$id" "$comment" "$loopback" "$proto" "${ifname:-$DEF_WAN}" "$bind_ip" "$bind_port"
+		write_fw_rule 'input' "$id" "$comment" "$loopback" "$proto" "${ifname:-$DEF_WAN}" "$bind_ip" "$bind_port"
 	elif [ "$action" == "forward" ]; then
 		[ -z "$server_ip" ]   && >&2 echo -e "$(basename $0): server_ip is empty." && return 0
 		[ -z "$server_port" ] && >&2 echo -e "$(basename $0): server_port is empty." && return 0
@@ -219,7 +219,7 @@ for proto in $protocols; do
 			# gen conf
 			eval "open_port_$proto=\"\${open_port_$proto:+\$open_port_$proto, }'\${bind_ip}:\${bind_port}'\""
 			# set firewall
-			[ "$follow_pub_port" == "0" ] && white_fw_rule 'dnat' "$id" "$comment" "$loopback" "$proto" "${ifname:-$DEF_WAN}" "$bind_ip" "$bind_port" "$server_ip" "$server_port"
+			[ "$follow_pub_port" == "0" ] && write_fw_rule 'dnat' "$id" "$comment" "$loopback" "$proto" "${ifname:-$DEF_WAN}" "$bind_ip" "$bind_port" "$server_ip" "$server_port"
 		elif [ "$mode" == "via" ]; then
 			[ "$server_ip" == "0.0.0.0" ] && server_ip='127.0.0.1'
 
@@ -248,8 +248,8 @@ clean_fw_rules() {
 	fi
 }
 
-# white_fw_rule <type> <id> <comment> <NAT loopback> <proto> <bind_ifname> <bind_ip> <bind_port> [server_ip] [server_port]
-white_fw_rule() {
+# write_fw_rule <type> <id> <comment> <NAT loopback> <proto> <bind_ifname> <bind_ip> <bind_port> [server_ip] [server_port]
+write_fw_rule() {
 	[ "$#" -ge 8 ] || return 0
 	local _type="$1" && shift
 	local _id="$1" && shift
