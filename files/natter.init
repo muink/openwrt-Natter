@@ -407,6 +407,24 @@ service_triggers() {
 
 # refresh <protocol> <open_ip> <open_port> <pub_port>
 refresh() {
+	[ -n "$1" -a -n "$2" -a -n "$3" -a -n "$4" ] || return 1
+	[ -z "$(cat "$DYNCONF" 2>/dev/null)" -o "$(cat "$DYNCONF" 2>/dev/null)" == "{ }" ] && return 0
+
+	# read required parameters
+	local protocol="$1" open_ip="$2" open_port="$3" pub_port="$4"
+	local ifname=$(ip -4 -o addr|grep "$open_ip"|cut -f2 -d' '); [ -z "$ifname" ] && return 0
+
+	# read conf
+	local conf="$(jsonfilter -i "$DYNCONF" -e '@.*' | grep "\"bind_port\": ${open_port}" | grep -E "\"proto\": \"${protocol}|both\"" | grep -E "\"bind_ifname\": \[ (.*\"${ifname}\".*|\"none\") \]" | head -1)"
+	[ -z "$conf" ] && return 0
+
+	# read required parameters
+	local vv='id comment server_ip loopback'
+	for _v in $vv; do
+		eval "local $_v=\"\$(jsonfilter -s '$conf' -e '@.$_v')\""
+		[ -z "$_v" ] && return 0
+	done
+
 	return 0
 }
 
