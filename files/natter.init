@@ -425,6 +425,13 @@ refresh() {
 		[ -z "$_v" ] && return 0
 	done
 
+	local lan='br-lan' lan_addr lan_subnet
+	eval "lan_addr=\"\${NIC_${lan//-/_}%/*}\""
+	eval "subnet_format lan_subnet \"\${NIC_${lan//-/_}}\""
+
+	[ -n "$(echo $_server_ip|grep -E "^0\.0\.0\.0$")" ]    && _server_ip=$open_ip
+	[ -n "$(echo $_server_ip|grep -E "^127(\.\d+){3}$")" ] && _server_ip=$lan_addr
+
 	return 0
 }
 
