@@ -29,7 +29,7 @@ define Package/$(PKG_NAME)
 	CATEGORY:=Network
 	TITLE:=Open Port under FullCone NAT (NAT 1)
 	URL:=https://github.com/MikeWang000000/Natter
-	DEPENDS:=+python3-light +bash +coreutils-base64
+	DEPENDS:=+python3-light +bash +coreutils-base64 +jsonfilter
 	PKGARCH:=all
 endef
 

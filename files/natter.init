@@ -1,10 +1,11 @@
 #!/bin/bash /etc/rc.common
 # Copyright (C) 2022-2023 muink
 #
-# depends bash coreutils-base64
+# depends bash coreutils-base64 jsonfilter
 
 . "${IPKG_INSTROOT}/lib/functions.sh"
 . "${IPKG_INSTROOT}/lib/functions/network.sh"
+. "${IPKG_INSTROOT}/usr/share/libubox/jshn.sh"
 
 START=70
 STOP=90
@@ -83,6 +84,7 @@ validate_section_portrule() {
 		'bind_ifname:list(network):none' \
 		'bind_port:range(1, 65535)' \
 		'server_ip:ip4addr(1):127.0.0.1' \
+		'follow_pub_port:bool:0' \
 		'server_port:range(1, 65535)' \
 		'proto:or("udp", "tcp", "both"):both'
 }
@@ -183,6 +185,12 @@ process_portrule() {
 	[ "$enabled" == "0" ] && return 0
 	[ "action" == "forward" -a "$mode" == "via" -a "$NAT_TYPE" == "#" ] && return 0
 
+	if [ "$action" == "forward" -a "$mode" == "dnat" -a "$follow_pub_port" == "1" ]; then
+		# write dyn_conf
+		dyn_content="${dyn_content:+$dyn_content, }'$1': { 'id': '$1', 'comment': '$comment', 'loopback': $loopback, 'proto': '$proto', 'bind_ifname': [ '${bind_ifname// /\', \'}' ], 'bind_port': $bind_port, 'server_ip': '$server_ip' }"
+		server_port=${pub_port:-25252} # not write rule, will be updated by the hook script in the future.
+	fi
+
 	local ifname bind_ip id=$1 protocols
 	[ -z "$bind_ifname" ] && bind_ifname='none'
 	[ "$proto" == "both" ] && protocols="tcp udp" || protocols="$proto"
@@ -201,7 +209,7 @@ for proto in $protocols; do
 		# gen conf
 		eval "open_port_$proto=\"\${open_port_$proto:+\$open_port_$proto, }'\${bind_ip}:\${bind_port}'\""
 		# set firewall
-		white_fw_rule 'input' "$id" "$comment" "$loopback" "$proto" "${ifname:-$DEF_WAN}" "$bind_ip" "$bind_port"
+		write_fw_rule 'input' "$id" "$comment" "$loopback" "$proto" "${ifname:-$DEF_WAN}" "$bind_ip" "$bind_port"
 	elif [ "$action" == "forward" ]; then
 		[ -z "$server_ip" ]   && >&2 echo -e "$(basename $0): server_ip is empty." && return 0
 		[ -z "$server_port" ] && >&2 echo -e "$(basename $0): server_port is empty." && return 0
@@ -211,7 +219,7 @@ for proto in $protocols; do
 			# gen conf
 			eval "open_port_$proto=\"\${open_port_$proto:+\$open_port_$proto, }'\${bind_ip}:\${bind_port}'\""
 			# set firewall
-			white_fw_rule 'dnat' "$id" "$comment" "$loopback" "$proto" "${ifname:-$DEF_WAN}" "$bind_ip" "$bind_port" "$server_ip" "$server_port"
+			[ "$follow_pub_port" == "0" ] && write_fw_rule 'dnat' "$id" "$comment" "$loopback" "$proto" "${ifname:-$DEF_WAN}" "$bind_ip" "$bind_port" "$server_ip" "$server_port"
 		elif [ "$mode" == "via" ]; then
 			[ "$server_ip" == "0.0.0.0" ] && server_ip='127.0.0.1'
 
@@ -240,8 +248,8 @@ clean_fw_rules() {
 	fi
 }
 
-# white_fw_rule <type> <id> <comment> <NAT loopback> <proto> <bind_ifname> <bind_ip> <bind_port> [server_ip] [server_port]
-white_fw_rule() {
+# write_fw_rule <type> <id> <comment> <NAT loopback> <proto> <bind_ifname> <bind_ip> <bind_port> [server_ip] [server_port]
+write_fw_rule() {
 	[ "$#" -ge 8 ] || return 0
 	local _type="$1" && shift
 	local _id="$1" && shift
@@ -322,7 +330,7 @@ echo $defined_device
 }
 
 reconfigure() {
-	local base_conf="$(gen_base_conf)" dyn_conf={}
+	local base_conf="$(gen_base_conf)" dyn_content
 	local open_port_tcp open_port_udp forward_port_tcp forward_port_udp
 	config_foreach validate_section_portrule "$PORTRULES" process_portrule || return $?
 	json_cleanup
@@ -331,6 +339,9 @@ reconfigure() {
 		'forward_port': { 'tcp': [ $forward_port_tcp ], 'udp': [ $forward_port_udp ] } \
 	}|")"
 	json_dump > "$CONF"
+	json_cleanup
+	json_load "{ $dyn_content }"
+	json_dump > "$DYNCONF"
 }
 
 natter_launch() {
