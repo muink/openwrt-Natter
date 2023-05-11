@@ -1,4 +1,4 @@
-From 362e2ed925147385f607989a184775e148f2ad81 Mon Sep 17 00:00:00 2001
+From c0877cad5b1a5eddd51a1c3b5802e2eb0e85585c Mon Sep 17 00:00:00 2001
 From: Anya Lin <hukk1996@gmail.com>
 Date: Mon, 8 May 2023 16:21:06 +0100
 Subject: [PATCH] add dynport refresh script
@@ -8,13 +8,13 @@ Subject: [PATCH] add dynport refresh script
  1 file changed, 1 insertion(+)
 
 diff --git a/natter-hook.sh b/natter-hook.sh
-index 9cac460..96667d0 100644
+index 9cac460..6a5041f 100644
 --- a/natter-hook.sh
 +++ b/natter-hook.sh
 @@ -6,4 +6,5 @@ outter_port=$5
  
  echo "[Script] - Upload to server: ${protocol}: ${inner_ip}:${inner_port} -> ${outter_ip}:${outter_port}"
  
-+/etc/init.d/natter refresh "$protocol" "$inner_ip" "$inner_port" "$outter_ip" "$outter_port"
++/etc/init.d/natter refresh "$protocol" "$inner_ip" "$inner_port" "$outter_port"
  /etc/natter/custom-script.sh "$@"
 
