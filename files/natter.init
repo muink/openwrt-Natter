@@ -318,6 +318,51 @@ case "$FW" in
 esac
 }
 
+# delet_fw_rule <tab>       <chain>          <id> <comment>  <action>     <proto>  <inifname> <src-addr> <dest-addr> <dport> [to]
+#              filter       NATTER                            ACCEPT        tcp
+#               nat    NATTER-PREROUTING                    FLOWOFFLOAD     udp
+#                      NATTER-POSTLOOPBACK                    REJECT
+#                      NATTER-PRELOOPBACK                      DROP
+#                                                              DNAT
+#                                                              SNAT
+delet_fw_rule() {
+	[ "$#" -ge 10 ] || return 0
+	local _tab="$1" && shift
+	local _chain="$1" && shift
+	local _id="$1" && shift
+	local _comment="$1" && shift
+	local _action="$1" && shift
+	local _proto="$1" && shift
+	local _in="$1" && shift
+	local _src="$1" && shift
+	local _dest="$1" && shift
+	local _dport="$1" && shift
+	[ "$#" -ge 1 ] && local _to="$1" && shift 2
+
+local num
+
+case "$FW" in
+	fw4)
+	;;
+	fw3)
+		if [ "$_tab" == "filter" ]; then
+			# num   pkts bytes target     prot opt in     out     source               destination         
+			# 1        0     0 ACCEPT     udp  --  eth1   *       0.0.0.0/0            0.0.0.0/0            udp dpt:233 /* Natter_cfg0a7982_233 */
+			num="$(iptables -t ${_tab} -vnL --line-number | sed -n "/Chain ${_chain}/,/^$/p" \
+			| sed -En "s|(\d+)\s*\d+\s*\d+\s*${_action}\s*${_proto}\s*\S+\s*${_in}\s*\*\s*${_src}\s*${_dest}\s*${_proto}\s*dpt:${_dport}\s*\/\* Natter_${_id}_${_comment} \*\/.*|\1|p" | head -1)"
+		elif [ "$_tab" == "nat" ]; then
+			# num   pkts bytes target     prot opt in     out     source               destination         
+			# 1        0     0 DNAT       tcp  --  eth1   *       0.0.0.0/0            0.0.0.0/0            tcp dpt:25565 /* Natter_cfg037982_MC_Server */ to:192.168.43.113:25565
+			num="$(iptables -t ${_tab} -vnL --line-number | sed -n "/Chain ${_chain}/,/^$/p" \
+			| sed -En "s|(\d+)\s*\d+\s*\d+\s*${_action}\s*${_proto}\s*\S+\s*${_in}\s*\*\s*${_src}\s*${_dest}\s*${_proto}\s*dpt:${_dport}\s*\/\* Natter_${_id}_${_comment} \*\/\s*to:${_to}.*|\1|p" | head -1)"
+		fi
+		[ -z "$num" ] && return 1
+		iptables -t ${_tab} -vnL ${_chain} $num --line-number
+		#iptables -t ${_tab} -D ${_chain} $num
+	;;
+esac
+}
+
 get_bind_ifnames() {
 	local defined_device ext_device
 
@@ -432,6 +477,13 @@ refresh() {
 	[ -n "$(echo $_server_ip|grep -E "^0\.0\.0\.0$")" ]    && _server_ip=$open_ip
 	[ -n "$(echo $_server_ip|grep -E "^127(\.\d+){3}$")" ] && _server_ip=$lan_addr
 
+	# del old fw rule and write a new
+	delet_fw_rule 'nat' 'NATTER-PREROUTING' "$id" "$comment" 'DNAT' "$protocol" "$ifname" '0.0.0.0/0' '0.0.0.0/0' "$open_port" "${server_ip}:\d+"
+	if [ "$follow_pub_port" == "1" ]; then
+		delet_fw_rule 'nat' 'NATTER-PRELOOPBACK'  "$id" "$comment \(reflection\)" 'DNAT' "$protocol" '\*' "$lan_subnet" "$open_ip" "$open_port" "${server_ip}:\d+"
+		delet_fw_rule 'nat' 'NATTER-POSTLOOPBACK' "$id" "$comment \(reflection\)" 'SNAT' "$protocol" '\*' "$lan_subnet" "$server_ip" "\d+" "$lan_addr"
+	fi
+	write_fw_rule 'dnat' "$id" "$comment" "$loopback" "$protocol" "$ifname" "$open_ip" "$open_port" "$server_ip" "$pub_port"
 	return 0
 }
 
