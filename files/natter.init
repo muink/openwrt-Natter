@@ -195,6 +195,7 @@ process_portrule() {
 		# write dyn_conf
 		dyn_content="${dyn_content:+$dyn_content, }'$1': { 'id': '$1', 'comment': '$comment', 'loopback': $loopback, 'proto': '$proto', 'bind_ifname': [ '${bind_ifname// /\', \'}' ], 'bind_port': $bind_port, 'server_ip': '$server_ip' }"
 		server_port=${pub_port:-25252} # not write rule, will be updated by the hook script in the future.
+		[ "$proto" == "both" ] && proto='udp'
 	fi
 
 	local ifname bind_ip id=$1 protocols
