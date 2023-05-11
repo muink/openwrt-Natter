@@ -34,13 +34,14 @@ config_load "$CONFIG_NAME"
 
 # define global var: DEF_WAN NIC_*
 define_nic() {
-	local wans wan dev
+	local wans wan dev sub
 	# get all active Wan NICs
 	for i in $(uci -q show firewall|sed -En "s|.+@zone\[(\d+)\].masq='1'|\1|p"); do
 		wans=$(uci -q get firewall.@zone[$i].network)
 		for wan in $wans; do
 			network_get_device dev $wan
-			[ -n "$dev" ] && network_get_subnet NIC_${dev//-/_} $wan # NIC_eth1=122.177.122.177/24
+			network_get_subnet sub $wan
+			[ -n "$dev" -a -n "$sub" ] && eval "NIC_${dev//-/_}=\"\$sub\"" # NIC_eth1=122.177.122.177/24
 		done
 	done
 	# get br-lan NICs
