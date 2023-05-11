@@ -10,6 +10,11 @@
 START=70
 STOP=90
 USE_PROCD=1
+
+EXTRA_COMMANDS="refresh"
+EXTRA_HELP=\
+"	refresh <protocol> <open_ip> <open_port> <pub_port>			Refresh Dynamic Rules"
+
 # natter
 [ -x "$(command -v  nft)" ] && FW='fw4' || FW='fw3'
 FIXED_PORT=3456
@@ -282,34 +287,93 @@ case "$FW" in
 	fw4)
 		if   [ "$_type" == "input" ]; then
 			#ref:                 input_wan [ iifname "<wan_device: e.g. eth1>" | ip daddr <wan_addr: e.g. 100.64.0.1> ] meta nfproto ipv4 <protocol> dport <bind_port> counter packets 0 bytes 0 accept [ comment "\"comment...\"" ]
-			nft add rule inet fw4 natter_input iifname "\"$_bind_ifname\"" meta nfproto ipv4 $_proto dport ${_bind_port} counter packets 0 bytes 0 accept comment "\"natter_${_id}_$_comment\""
+			nft add rule inet fw4 natter_input iifname "\"$_bind_ifname\"" meta nfproto ipv4 $_proto dport ${_bind_port} counter packets 0 bytes 0 accept comment "\"natter_${_id}_${_comment}_${_proto}_${_bind_ifname}_${_bind_port}\""
 		elif [ "$_type" == "dnat" ]; then
 			#ref:                 dstnat_wan [ iifname "<wan_device: e.g. eth1>" | ip daddr <wan_addr: e.g. 100.64.0.1> ] meta nfproto ipv4 <protocol> dport <bind_port> counter packets 0 bytes 0 dnat ip to <intenal_server_ip>:<intenal_server_port> [ comment "\"comment...\"" ]
-			nft add rule inet fw4 natter_prerouting iifname "\"$_bind_ifname\"" meta nfproto ipv4 $_proto dport ${_bind_port} counter packets 0 bytes 0 dnat ip to ${_server_ip}:${_server_port} comment "\"natter_${_id}_$_comment\""
+			nft add rule inet fw4 natter_prerouting iifname "\"$_bind_ifname\"" meta nfproto ipv4 $_proto dport ${_bind_port} counter packets 0 bytes 0 dnat ip to ${_server_ip}:${_server_port} comment "\"natter_${_id}_${_comment}_${_proto}_${_bind_ifname}_${_bind_port}\""
 			#loopback
 			if [ "$_loopback" == "1" ]; then
 			#ref:                 srcnat_lan oifname "\"br-lan\"" ip saddr <lan_subnet: e.g. 192.168.1.0/24> ip daddr <intenal_server_ip> <protocol> dport <intenal_server_port> snat ip to <lan_addr: e.g. 192.168.1.1> [ comment "\"comment...\"" ]
-			nft add rule inet fw4 natter_postloopback oifname "\"$lan\"" ip saddr $lan_subnet ip daddr ${_server_ip} $_proto dport ${_server_port} snat ip to $lan_addr comment "\"natter_${_id}_$_comment (reflection)\""
+			nft add rule inet fw4 natter_postloopback oifname "\"$lan\"" ip saddr $lan_subnet ip daddr ${_server_ip} $_proto dport ${_server_port} snat ip to $lan_addr comment "\"natter_${_id}_${_comment}_${_proto}_${_bind_ifname}_${_bind_port} (reflection)\""
 			#ref:                 dstnat_lan iifname "\"br-lan\"" ip saddr <lan_subnet: e.g. 192.168.1.0/24> ip daddr <wan_addr: e.g. 100.64.0.1> <protocol> dport <bind_port> dnat ip to <intenal_server_ip>:<intenal_server_port> [ comment "\"comment...\"" ]
-			nft add rule inet fw4 natter_preloopback iifname "\"$lan\"" ip saddr $lan_subnet ip daddr ${_bind_ip} $_proto dport ${_bind_port} dnat ip to ${_server_ip}:${_server_port} comment "\"natter_${_id}_$_comment (reflection)\""
+			nft add rule inet fw4 natter_preloopback iifname "\"$lan\"" ip saddr $lan_subnet ip daddr ${_bind_ip} $_proto dport ${_bind_port} dnat ip to ${_server_ip}:${_server_port} comment "\"natter_${_id}_${_comment}_${_proto}_${_bind_ifname}_${_bind_port} (reflection)\""
 			fi
 		fi
 	;;
 	fw3)
 		if   [ "$_type" == "input" ]; then
 			#ref:    -t filter -A zone_wan_input [ -i <wan_device: e.g. eth1> | -d <wan_addr: e.g. 100.64.0.1>/32 ] -p <protocol> -m <protocol> --dport <bind_port> [ -m comment --comment "comment..." ] -j ACCEPT
-			iptables -t filter -A NATTER -i $_bind_ifname -p $_proto -m $_proto --dport ${_bind_port} -m comment --comment "Natter_${_id}_$_comment" -j ACCEPT
+			iptables -t filter -A NATTER -i $_bind_ifname -p $_proto -m $_proto --dport ${_bind_port} -m comment --comment "Natter_${_id}_${_comment}_${_proto}_${_bind_ifname}_${_bind_port}" -j ACCEPT
 		elif [ "$_type" == "dnat" ]; then
 			#ref:    -t nat -A zone_wan_prerouting [ -i <wan_device: e.g. eth1> | -d <wan_addr: e.g. 100.64.0.1>/32 ] -p <protocol> -m <protocol> --dport <bind_port> [ -m comment --comment "comment..." ] -j DNAT --to-destination <intenal_server_ip>:<intenal_server_port>
-			iptables -t nat -A NATTER-PREROUTING -i $_bind_ifname -p $_proto -m $_proto --dport ${_bind_port} -m comment --comment "Natter_${_id}_$_comment" -j DNAT --to-destination ${_server_ip}:${_server_port}
+			iptables -t nat -A NATTER-PREROUTING -i $_bind_ifname -p $_proto -m $_proto --dport ${_bind_port} -m comment --comment "Natter_${_id}_${_comment}_${_proto}_${_bind_ifname}_${_bind_port}" -j DNAT --to-destination ${_server_ip}:${_server_port}
 			#loopback
 			if [ "$_loopback" == "1" ]; then
 			#ref:    -t nat -A zone_lan_postrouting -s <lan_subnet: e.g. 192.168.1.0/24> -d <intenal_server_ip>/32 -p <protocol> -m <protocol> --dport <intenal_server_port> [ -m comment --comment "comment..." ] -j SNAT --to-source <lan_addr: e.g. 192.168.1.1>
-			iptables -t nat -A NATTER-POSTLOOPBACK -s $lan_subnet -d ${_server_ip}/32 -p $_proto -m $_proto --dport ${_server_port} -m comment --comment "Natter_${_id}_$_comment (reflection)" -j SNAT --to-source $lan_addr
+			iptables -t nat -A NATTER-POSTLOOPBACK -s $lan_subnet -d ${_server_ip}/32 -p $_proto -m $_proto --dport ${_server_port} -m comment --comment "Natter_${_id}_${_comment}_${_proto}_${_bind_ifname}_${_bind_port} (reflection)" -j SNAT --to-source $lan_addr
 			#ref:    -t nat -A zone_lan_prerouting -s <lan_subnet: e.g. 192.168.1.0/24> -d <wan_addr: e.g. 100.64.0.1>/32 -p <protocol> -m <protocol> --dport <bind_port> [ -m comment --comment "comment..." ] -j DNAT --to-destination <intenal_server_ip>:<intenal_server_port>
-			iptables -t nat -A NATTER-PRELOOPBACK -s $lan_subnet -d ${_bind_ip}/32 -p $_proto -m $_proto --dport ${_bind_port} -m comment --comment "Natter_${_id}_$_comment (reflection)" -j DNAT --to-destination ${_server_ip}:${_server_port}
+			iptables -t nat -A NATTER-PRELOOPBACK -s $lan_subnet -d ${_bind_ip}/32 -p $_proto -m $_proto --dport ${_bind_port} -m comment --comment "Natter_${_id}_${_comment}_${_proto}_${_bind_ifname}_${_bind_port} (reflection)" -j DNAT --to-destination ${_server_ip}:${_server_port}
 			fi
 		fi
+	;;
+esac
+}
+
+# delet_fw_rule <type> <id> <comment> <NAT loopback> <proto> <bind_ifname> <bind_port>
+delet_fw_rule() {
+	[ "$#" -ge 7 ] || return 0
+	local _type="$1" && shift
+	local _id="$1" && shift
+	local _comment="$1" && shift
+	local _loopback="$1" && shift
+	local _proto="$1" && shift
+	local _bind_ifname="$1" && shift
+	local _bind_port="$1" && shift
+
+local order tab chain num
+
+case "$FW" in
+	fw4)
+		if   [ "$_type" == "input" ]; then
+			order="${order:+$order }'fw4:natter_input'"
+		elif [ "$_type" == "dnat" ]; then
+			order="${order:+$order }'fw4:natter_prerouting'"
+			#loopback
+			if [ "$_loopback" == "1" ]; then
+				order="${order:+$order }'fw4:natter_postloopback' 'fw4:natter_preloopback'"
+			fi
+		fi
+		for o in $order; do
+			tab="${o%%:*}"; tab="${tab#\'}"
+			chain="${o##*:}"; chain="${chain%\'}"
+			num="$(nft -nna list chain inet $tab $chain \
+			| sed -En "s|.+\s*comment\s*\"natter_${_id}_${_comment}_${_proto}_${_bind_ifname}_${_bind_port}( \(reflection\))*\"\s*#\s*handle\s*(\d+).*|\2|p" | head -1)"
+			[ -n "$num" ] && {
+				nft -nna list chain inet $tab $chain | sed -n "/#\s*handle\s*${num}\s*$/p"
+				nft delete rule inet $tab $chain handle $num
+			}
+		done
+	;;
+	fw3)
+		if   [ "$_type" == "input" ]; then
+			order="${order:+$order }'filter:NATTER'"
+		elif [ "$_type" == "dnat" ]; then
+			order="${order:+$order }'nat:NATTER-PREROUTING'"
+			#loopback
+			if [ "$_loopback" == "1" ]; then
+				order="${order:+$order }'nat:NATTER-POSTLOOPBACK' 'nat:NATTER-PRELOOPBACK'"
+			fi
+		fi
+		for o in $order; do
+			tab="${o%%:*}"; tab="${tab#\'}"
+			chain="${o##*:}"; chain="${chain%\'}"
+			num="$(iptables -t $tab -vnL --line-number | sed -n "/^Chain $chain/,/^$/p" \
+			| sed -En "s|(\d+)\s*.+\/\* Natter_${_id}_${_comment}_${_proto}_${_bind_ifname}_${_bind_port}( \(reflection\))* \*\/.*|\1|p" | head -1)"
+			[ -n "$num" ] && {
+				iptables -t $tab -vnL $chain $num --line-number
+				iptables -t $tab -D $chain $num
+			}
+		done
 	;;
 esac
 }
@@ -399,6 +463,33 @@ service_triggers() {
 		iface=$(uci show network|grep "device='$ifname'"|cut -f2 -d'.'|head -n1)
 		[ -n "$iface" ] && procd_add_interface_trigger "interface.*.up" "$iface" /etc/init.d/natter reload
 	done
+}
+
+# refresh <protocol> <open_ip> <open_port> <pub_port>
+refresh() {
+	[ -n "$1" -a -n "$2" -a -n "$3" -a -n "$4" ] || return 1
+	[ -z "$(cat "$DYNCONF" 2>/dev/null)" -o "$(cat "$DYNCONF" 2>/dev/null)" == "{ }" ] && return 0
+
+	# read required parameters
+	local protocol="$1" open_ip="$2" open_port="$3" pub_port="$4"
+	local ifname=$(ip -4 -o addr|grep "$open_ip"|cut -f2 -d' '); [ -z "$ifname" ] && return 0
+
+	# read conf
+	local conf="$(jsonfilter -i "$DYNCONF" -e '@.*' | grep "\"bind_port\": ${open_port}" | grep -E "\"proto\": \"${protocol}|both\"" | grep -E "\"bind_ifname\": \[ (.*\"${ifname}\".*|\"none\") \]" | head -1)"
+	[ -z "$conf" ] && return 0
+
+	# read required parameters
+	local vv='id comment server_ip loopback'
+	for _v in $vv; do
+		eval "local $_v=\"\$(jsonfilter -s '$conf' -e '@.$_v')\""
+		[ -z "$_v" ] && return 0
+	done
+
+	# del old fw rule and write a new
+	delet_fw_rule 'dnat' "$id" "$comment" "$loopback" "$protocol" "$ifname" "$open_port"
+	write_fw_rule 'dnat' "$id" "$comment" "$loopback" "$protocol" "$ifname" "$open_ip" "$open_port" "$server_ip" "$pub_port"
+	# call qb api
+	return 0
 }
 
 stop_service() {
