@@ -13,7 +13,7 @@ USE_PROCD=1
 
 EXTRA_COMMANDS="refresh"
 EXTRA_HELP=\
-"	refresh <protocol> <open_ip> <open_port> <pub_port>			Refresh Dynamic Rules"
+"	refresh <protocol> <open_ip> <open_port> <pub_port>		Refresh Dynamic Rules"
 
 # natter
 [ -x "$(command -v  nft)" ] && FW='fw4' || FW='fw3'
@@ -58,6 +58,7 @@ define_nic() {
 
 	return 0
 }
+define_nic
 
 # define global var: ${TYPEDSECTION^^}_*
 define_common() {
@@ -443,7 +444,7 @@ start_service() {
 	# defined init
 	`check_nat $FIXED_PORT` || { >&2 echo -e "$(basename $0): Fixed port test failed, Natter may not work on your network.\n\tPlease check whether your router allows\n\tincoming connections on port ${FIXED_PORT}."; return 1; }
 	`check_nat` && NAT_TYPE=1 || NAT_TYPE=#
-	define_nic
+
 	config_foreach validate_section "$TYPEDSECTION" define_common || return $?
 
 	reconfigure || return $?
@@ -453,7 +454,6 @@ start_service() {
 service_triggers() {
 	procd_add_reload_trigger "$CONFIG_NAME" 'network' 'firewall'
 
-	define_nic
 	local iface ifname
 
 	iface=$(uci show network|grep "device='br-lan'"|cut -f2 -d'.'|head -n1)
@@ -470,8 +470,6 @@ service_triggers() {
 refresh() {
 	[ -n "$1" -a -n "$2" -a -n "$3" -a -n "$4" ] || return 1
 	[ -z "$(cat "$DYNCONF" 2>/dev/null)" -o "$(cat "$DYNCONF" 2>/dev/null)" == "{ }" ] && return 0
-
-	define_nic
 
 	# read required parameters
 	local protocol="$1" open_ip="$2" open_port="$3" pub_port="$4"
@@ -501,4 +499,11 @@ stop_service() {
 	clean_conf_files
 	clean_fw_rules
 	return 0
+}
+
+restart() {
+	stop
+	check_nat $FIXED_PORT
+	check_nat
+	start
 }
