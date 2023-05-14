@@ -258,7 +258,7 @@ clean_fw_rules() {
 
 # write_fw_rule <type> <id> <comment> <NAT loopback> <proto> <bind_ifname> <bind_ip> <bind_port> [server_ip] [server_port]
 write_fw_rule() {
-	[ "$#" -ge 8 ] || return 0
+	[ "$#" -ge 8 ] || return 1
 	local _type="$1" && shift
 	local _id="$1" && shift
 	local _comment="$1" && shift
@@ -323,7 +323,7 @@ esac
 
 # delet_fw_rule <type> <id> <comment> <NAT loopback> <proto> <bind_ifname> <bind_port>
 delet_fw_rule() {
-	[ "$#" -ge 7 ] || return 0
+	[ "$#" -ge 7 ] || return 1
 	local _type="$1" && shift
 	local _id="$1" && shift
 	local _comment="$1" && shift
@@ -483,7 +483,7 @@ refresh() {
 	local vv='id comment server_ip loopback'
 	for _v in $vv; do
 		eval "local $_v=\"\$(jsonfilter -s '$conf' -e '@.$_v')\""
-		[ -z "$_v" ] && return 0
+		[ -z "$_v" ] && return 1
 	done
 
 	# del old fw rule and write a new
