@@ -93,7 +93,14 @@ validate_section_portrule() {
 		'server_ip:ip4addr(1):127.0.0.1' \
 		'follow_pub_port:bool:0' \
 		'server_port:range(1, 65535)' \
-		'proto:or("udp", "tcp", "both"):both'
+		'proto:or("udp", "tcp", "both"):both' \
+\
+		'refresh_port:bool:0' \
+		'appname:or("qbt", "tr"):qbt' \
+		'scheme:or("http", "https"):http' \
+		'web_port:range(1, 65535):8080' \
+		'username:string' \
+		'password:string'
 }
 
 # check_nat [port]
@@ -194,7 +201,7 @@ process_portrule() {
 
 	if [ "$action" == "forward" -a "$mode" == "dnat" -a "$follow_pub_port" == "1" ]; then
 		# write dyn_conf
-		dyn_content="${dyn_content:+$dyn_content, }'$1': { 'id': '$1', 'comment': '$comment', 'loopback': $loopback, 'proto': '$proto', 'bind_ifname': [ '${bind_ifname// /\', \'}' ], 'bind_port': $bind_port, 'server_ip': '$server_ip' }"
+		dyn_content="${dyn_content:+$dyn_content, }'$1': { 'id': '$1', 'comment': '$comment', 'loopback': $loopback, 'proto': '$proto', 'bind_ifname': [ '${bind_ifname// /\', \'}' ], 'bind_port': $bind_port, 'server_ip': '$server_ip', 'refresh_port': $refresh_port, 'appname': '$appname', 'scheme': '$scheme', 'web_port': $web_port, 'username': '$username', 'password': '$password' }"
 		server_port=${pub_port:-25252} # not write rule, will be updated by the hook script in the future.
 		[ "$proto" == "both" ] && proto='udp'
 	fi
@@ -489,7 +496,50 @@ refresh() {
 	# del old fw rule and write a new
 	delet_fw_rule 'dnat' "$id" "$comment" "$loopback" "$protocol" "$ifname" "$open_port"
 	write_fw_rule 'dnat' "$id" "$comment" "$loopback" "$protocol" "$ifname" "$open_ip" "$open_port" "$server_ip" "$pub_port"
-	# call qb api
+
+	# read required parameters
+	local vv='refresh_port appname scheme web_port username password'
+	for _v in $vv; do
+		eval "local $_v=\"\$(jsonfilter -s '$conf' -e '@.$_v')\""
+		[ "$refresh_port" == "0" ] && return 0
+		[ -z "$_v" ] && return 1
+	done
+
+	# update application listen port
+	case "$appname" in
+		# qBittorrent
+		'qbt')
+			local self_signed='-k'
+			local qb_cookie="$(curl $self_signed -sSL -i \
+				--header "Referer: ${scheme}://${server_ip}:${web_port}" \
+				--data "username=${username}&password=${password}" \
+				--url ${scheme}://${server_ip}:${web_port}/api/v2/auth/login \
+				| grep -i set-cookie | sed -En 's|^.*(SID=\S+);.*|\1|p')"
+			curl $self_signed -sSL -X POST \
+				-b "$qb_cookie" \
+				-d 'json={"listen_port":'${pub_port}'}' \
+				--url ${scheme}://${server_ip}:${web_port}/api/v2/app/setPreferences
+			curl $self_signed -sSL -I \
+				--cookie "$qb_cookie" \
+				--url ${scheme}://${server_ip}:${web_port}/api/v2/auth/logout
+		;;
+		# Transmission
+		'tr')
+			scheme='http'
+			local tr_sid="$(curl -sSL \
+				-u ${username}:${password} \
+				--url ${scheme}://${server_ip}:${web_port}/transmission/rpc \
+				| sed 's|.*<code>||g;s|</code>.*||g')"
+			curl -sSL -X POST \
+				-H "$tr_sid" -u ${username}:${password} \
+				-d '{"method":"session-set","arguments":{"peer-port":'${pub_port}'}}' \
+				--url ${scheme}://${server_ip}:${web_port}/transmission/rpc
+		;;
+		*)
+			>&2 echo -e "$(basename $0): application '$app' is invalid"
+		;;
+	esac
+
 	return 0
 }
 
