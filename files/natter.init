@@ -536,7 +536,7 @@ refresh() {
 				--url ${scheme}://${server_ip}:${web_port}/transmission/rpc
 		;;
 		*)
-			>&2 echo -e "$(basename $0): application '$app' is invalid"
+			>&2 echo -e "$(basename $0): application '$appname' is invalid"
 		;;
 	esac
 
