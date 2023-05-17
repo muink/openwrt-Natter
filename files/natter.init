@@ -517,7 +517,7 @@ refresh() {
 				| grep -i set-cookie | sed -En 's|^.*(SID=\S+);.*|\1|p')"
 			curl $self_signed -sSL -X POST \
 				-b "$qb_cookie" \
-				-d 'json={"listen_port":'${pub_port}'}' \
+				-d 'json={"listen_port":"'"${pub_port}"'"}' \
 				--url ${scheme}://${server_ip}:${web_port}/api/v2/app/setPreferences
 			curl $self_signed -sSL -I \
 				--cookie "$qb_cookie" \
@@ -532,7 +532,7 @@ refresh() {
 				| sed 's|.*<code>||g;s|</code>.*||g')"
 			curl -sSL -X POST \
 				-H "$tr_sid" -u ${username}:${password} \
-				-d '{"method":"session-set","arguments":{"peer-port":'${pub_port}'}}' \
+				-d '{"method":"session-set","arguments":{"peer-port":"'"${pub_port}"'"}}' \
 				--url ${scheme}://${server_ip}:${web_port}/transmission/rpc
 		;;
 		*)
