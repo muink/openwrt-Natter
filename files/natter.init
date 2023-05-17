@@ -506,31 +506,32 @@ refresh() {
 	done
 
 	# update application listen port
+	local retry='--connect-timeout 1 --retry 0'
 	case "$appname" in
 		# qBittorrent
 		'qbt')
 			local self_signed='-k'
-			local qb_cookie="$(curl $self_signed -sSL -i \
+			local qb_cookie="$(curl $retry $self_signed -sSL -i \
 				--header "Referer: ${scheme}://${server_ip}:${web_port}" \
 				--data "username=${username}&password=${password}" \
 				--url ${scheme}://${server_ip}:${web_port}/api/v2/auth/login \
 				| grep -i set-cookie | sed -En 's|^.*(SID=\S+);.*|\1|p')"
-			curl $self_signed -sSL -X POST \
+			curl $retry $self_signed -sSL -X POST \
 				-b "$qb_cookie" \
 				-d 'json={"listen_port":"'"${pub_port}"'"}' \
 				--url ${scheme}://${server_ip}:${web_port}/api/v2/app/setPreferences
-			curl $self_signed -sSL -I \
+			curl $retry $self_signed -sSL -I \
 				--cookie "$qb_cookie" \
 				--url ${scheme}://${server_ip}:${web_port}/api/v2/auth/logout
 		;;
 		# Transmission
 		'tr')
 			scheme='http'
-			local tr_sid="$(curl -sSL \
+			local tr_sid="$(curl $retry -sSL \
 				-u ${username}:${password} \
 				--url ${scheme}://${server_ip}:${web_port}/transmission/rpc \
 				| sed 's|.*<code>||g;s|</code>.*||g')"
-			curl -sSL -X POST \
+			curl $retry -sSL -X POST \
 				-H "$tr_sid" -u ${username}:${password} \
 				-d '{"method":"session-set","arguments":{"peer-port":"'"${pub_port}"'"}}' \
 				--url ${scheme}://${server_ip}:${web_port}/transmission/rpc
