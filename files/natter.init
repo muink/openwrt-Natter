@@ -95,7 +95,7 @@ validate_section_portrule() {
 		'server_port:range(1, 65535)' \
 		'proto:or("udp", "tcp", "both"):both' \
 \
-		'refresh_port:bool:0' \
+		'refresh:bool:0' \
 		'appname:or("qbt", "tr"):qbt' \
 		'scheme:or("http", "https"):http' \
 		'web_port:range(1, 65535):8080' \
@@ -201,7 +201,7 @@ process_portrule() {
 
 	if [ "$action" == "forward" -a "$mode" == "dnat" -a "$follow_pub_port" == "1" ]; then
 		# write dyn_conf
-		dyn_content="${dyn_content:+$dyn_content, }'$1': { 'id': '$1', 'comment': '$comment', 'loopback': $loopback, 'proto': '$proto', 'bind_ifname': [ '${bind_ifname// /\', \'}' ], 'bind_port': $bind_port, 'server_ip': '$server_ip', 'refresh_port': $refresh_port, 'appname': '$appname', 'scheme': '$scheme', 'web_port': $web_port, 'username': '$username', 'password': '$password' }"
+		dyn_content="${dyn_content:+$dyn_content, }'$1': { 'id': '$1', 'comment': '$comment', 'loopback': $loopback, 'proto': '$proto', 'bind_ifname': [ '${bind_ifname// /\', \'}' ], 'bind_port': $bind_port, 'server_ip': '$server_ip', 'refresh': $refresh, 'appname': '$appname', 'scheme': '$scheme', 'web_port': $web_port, 'username': '$username', 'password': '$password' }"
 		server_port=${pub_port:-25252} # not write rule, will be updated by the hook script in the future.
 		[ "$proto" == "both" ] && proto='udp'
 	fi
@@ -498,10 +498,10 @@ refresh() {
 	write_fw_rule 'dnat' "$id" "$comment" "$loopback" "$protocol" "$ifname" "$open_ip" "$open_port" "$server_ip" "$pub_port"
 
 	# read required parameters
-	local vv='refresh_port appname scheme web_port username password'
+	local vv='refresh appname scheme web_port username password'
 	for _v in $vv; do
 		eval "local $_v=\"\$(jsonfilter -s '$conf' -e '@.$_v')\""
-		[ "$refresh_port" == "0" ] && return 0
+		[ "$refresh" == "0" ] && return 0
 		[ -z "$_v" ] && return 1
 	done
 
