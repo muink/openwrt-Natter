@@ -1,0 +1,20 @@
+From de43f0d5fc8e165d1722cc718c23263138604400 Mon Sep 17 00:00:00 2001
+From: Anya Lin <hukk1996@gmail.com>
+Date: Fri, 19 May 2023 13:04:00 +0100
+Subject: [PATCH] add plugins script
+
+---
+ natter-hook.sh | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/natter-hook.sh b/natter-hook.sh
+index 78a538d..786754a 100644
+--- a/natter-hook.sh
++++ b/natter-hook.sh
+@@ -7,4 +7,5 @@ outter_port=$5
+ echo "[Script] - Upload to server: ${protocol}: ${inner_ip}:${inner_port} -> ${outter_ip}:${outter_port}"
+ 
+ /etc/init.d/natter refresh "$protocol" "$inner_ip" "$inner_port" "$outter_port"
++/usr/share/natter/plugins.sh "$protocol" "$inner_ip" "$inner_port" "$outter_ip" "$outter_port"
+ /etc/natter/custom-script.sh "$protocol" "$inner_ip" "$inner_port" "$outter_ip" "$outter_port"
+
