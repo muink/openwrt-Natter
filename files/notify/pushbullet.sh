@@ -10,7 +10,7 @@ key_define_refer() {
 }
 
 notify_pushbullet() {
-	local retry='--connect-timeout 5 --retry 3'
+	local retry='--connect-timeout 3 --retry 3'
 	curl $retry -sSL -o /dev/null -X POST \
 		-H "Access-Token: ${TOKEN}" \
 		-H 'Content-Type: application/json' \

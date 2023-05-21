@@ -10,7 +10,7 @@ key_define_refer() {
 }
 
 notify_telegram() {
-	local retry='--connect-timeout 5 --retry 3'
+	local retry='--connect-timeout 3 --retry 3'
 	curl $retry -sSL -o /dev/null -X POST \
 		-H 'Content-Type: application/json' \
 		-d '{"chat_id":"'"${CHAT_ID}"'","text":"'"${text}"'","parse_mode":"HTML","disable_notification":"false"}' \
