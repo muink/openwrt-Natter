@@ -12,7 +12,7 @@ outter_port=$5
 
 # plugins
 ETCPATH='/etc/natter'
-DEFAULT_TEXT="Natter notification: ${protocol}: ${inner_ip}:${inner_port} -> ${outter_ip}:${outter_port}"
+DEFAULT_TEXT="Natter: [${protocol^^}] ${inner_ip}:${inner_port} -> ${outter_ip}:${outter_port}"
 # uci
 CONFIG_NAME='natter-plugins'
 NOTIFY='notify'
@@ -38,7 +38,8 @@ process_notify() {
 	local path="$ETCPATH/notify"	
 	[ -f "$path/${script}" ] || return 1
 
-	echo "notify_${script%.*}: ${text:=$DEFAULT_TEXT}"
+	[ -n "$text" ] && eval "text=\"$text\"" || text="$DEFAULT_TEXT"
+	echo "notify_${script%.*}: $text"
 	. "$path/${script}"
 	eval "$tokens"
 	eval "notify_${script%.*}"
