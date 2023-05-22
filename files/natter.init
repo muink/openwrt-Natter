@@ -536,6 +536,18 @@ refresh() {
 				-d '{"method":"session-set","arguments":{"peer-port":"'"${pub_port}"'"}}' \
 				--url ${scheme}://${server_ip}:${web_port}/transmission/rpc
 		;;
+		# µTorrent
+		'ut')
+			echo utorrent
+		;;
+		# Deluge
+		'de')
+			echo deluge
+		;;
+		# Tixati
+		'tix')
+			echo tixati
+		;;
 		*)
 			>&2 echo -e "$(basename $0): application '$appname' is invalid"
 		;;
