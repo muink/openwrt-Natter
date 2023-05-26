@@ -88,7 +88,7 @@ validate_section_portrule() {
 		'loopback:bool:1' \
 		'action:or("bind", "forward"):bind' \
 		'mode:or("dnat", "via"):dnat' \
-		'bind_ifname:list(network):none' \
+		'bind_ifname:network:none' \
 		'bind_port:range(1, 65535)' \
 		'server_ip:ip4addr(1):127.0.0.1' \
 		'follow_pub_port:bool:0' \
