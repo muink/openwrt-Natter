@@ -5,8 +5,8 @@ key_define_refer() {
 	local custom_domain=''
 	local text=""
 	# tokens keys
-	local TOKEN=''
-	local TITLE=''
+	TOKEN=''
+	TITLE=''
 }
 
 notify_pushbullet() {

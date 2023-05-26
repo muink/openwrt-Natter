@@ -61,6 +61,7 @@ process_notify() {
 	[ -n "$text" ] && eval "text=\"$text\"" || text="$DEFAULT_TEXT"
 	echo "notify_${script%.*}: $text"
 	. "$path/${script}"
+	key_define_refer
 	eval "$tokens"
 	eval "notify_${script%.*}"
 }
@@ -89,6 +90,7 @@ process_ddns() {
 	[ "$a_record" == "1" ] && echo "${fqdn} -> ${outter_ip}"
 	[ "$srv_record" == "1" ] && echo "_${srv_service}._${srv_proto}.${fqdn} -> ${srv_target}:${outter_port}"
 	. "$path/${script}"
+	key_define_refer
 	eval "$tokens"
 	eval "ddns_${script%.*}"
 }
