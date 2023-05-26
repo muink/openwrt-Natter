@@ -6,6 +6,7 @@ inner_ip=$2
 inner_port=$3
 outter_ip=$4
 outter_port=$5
+ifname=$(ip -4 -o addr|grep "$inner_ip"|cut -f2 -d' '); [ -z "$ifname" ] && return 0
 
 . "${IPKG_INSTROOT}/lib/functions.sh"
 . "${IPKG_INSTROOT}/lib/functions/procd.sh"
@@ -14,14 +15,16 @@ outter_port=$5
 ETCPATH='/etc/natter'
 DEFAULT_TEXT="Natter: [${protocol^^}] ${inner_ip}:${inner_port} -> ${outter_ip}:${outter_port}"
 # uci
-CONFIG_NAME='natter-plugins'
+CONFIG_NAME='natter'
+CONFIG_PLUG_NAME='natter-plugins'
+PORTRULES='portrule'
 NOTIFY='notify'
 
-config_load "$CONFIG_NAME"
+config_load "$CONFIG_PLUG_NAME"
 
 
 validate_section_notify() {
-	uci_load_validate $CONFIG_NAME $NOTIFY "$1" "$2" \
+	uci_load_validate $CONFIG_PLUG_NAME $NOTIFY "$1" "$2" \
 		'enabled:bool:0' \
 		'comment:uciname' \
 		'script:string' \
@@ -35,7 +38,7 @@ process_notify() {
 	[ "$enabled" == "0" ] && return 0
 	[ -z "$script" -o -z "$tokens" ] && return 1
 
-	local path="$ETCPATH/notify"	
+	local path="$ETCPATH/notify"
 	[ -f "$path/${script}" ] || return 1
 
 	[ -n "$text" ] && eval "text=\"$text\"" || text="$DEFAULT_TEXT"
