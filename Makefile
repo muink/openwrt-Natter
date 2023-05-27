@@ -29,7 +29,9 @@ define Package/$(PKG_NAME)
 	CATEGORY:=Network
 	TITLE:=Open Port under FullCone NAT (NAT 1)
 	URL:=https://github.com/MikeWang000000/Natter
-	DEPENDS:=+python3-light +bash +coreutils-base64 +jsonfilter
+	DEPENDS:=+python3-light +bash +coreutils-base64 +jsonfilter \
+		+$(PKG_NAME)-notify-script-telegram \
+		+$(PKG_NAME)-ddns-script-cloudflare
 	PKGARCH:=all
 endef
 
@@ -116,12 +118,67 @@ define Package/$(PKG_NAME)/install
 
 	$(INSTALL_DIR) $(1)/etc/uci-defaults
 	$(INSTALL_BIN) ./files/uci-defaults $(1)/etc/uci-defaults/70_$(PKG_NAME)
+endef
 
-	$(INSTALL_DIR) $(1)/etc/$(PKG_NAME)/notify
-	$(INSTALL_BIN) ./files/notify/*.sh $(1)/etc/$(PKG_NAME)/notify/
+define Package/$(PKG_NAME)-scripts/Default
+	SECTION:=net
+	CATEGORY:=Network
+	TITLE:=Natter $(1) scripts ($(2))
+	DEPENDS:=+natter
+	PROVIDES:=$(1)-scripts
+	VARIANT:=$(2)
+	PKGARCH:=all
+endef
 
-	$(INSTALL_DIR) $(1)/etc/$(PKG_NAME)/ddns
-	$(INSTALL_BIN) ./files/ddns/*.sh $(1)/etc/$(PKG_NAME)/ddns/
+define Package/$(PKG_NAME)-notify-script-telegram
+	$(call Package/$(PKG_NAME)-scripts/Default,notify,telegram)
+	DEPENDS+:=
+endef
+
+define Package/$(PKG_NAME)-notify-script-pushbullet
+	$(call Package/$(PKG_NAME)-scripts/Default,notify,pushbullet)
+	DEPENDS+:=
+endef
+
+define Package/$(PKG_NAME)-ddns-script-cloudflare
+	$(call Package/$(PKG_NAME)-scripts/Default,ddns,cloudflare)
+	DEPENDS+:=+jsonfilter
+endef
+
+define Package/$(PKG_NAME)-scripts/description/Default
+	Natter $(1) scripts ($(2))
+endef
+
+define Package/$(PKG_NAME)-notify-script-telegram/description
+	$(call Package/$(PKG_NAME)-scripts/description/Default,notify,telegram)
+endef
+
+define Package/$(PKG_NAME)-notify-script-pushbullet/description
+	$(call Package/$(PKG_NAME)-scripts/description/Default,notify,pushbullet)
+endef
+
+define Package/$(PKG_NAME)-ddns-script-cloudflare/description
+	$(call Package/$(PKG_NAME)-scripts/description/Default,ddns,cloudflare)
+endef
+
+define Package/$(PKG_NAME)-scripts/install/Default
+	$(INSTALL_DIR) $(1)/etc/$(PKG_NAME)/$(2)
+	$(INSTALL_BIN) ./files/$(2)/$(3).sh $(1)/etc/$(PKG_NAME)/$(2)/
+endef
+
+define Package/$(PKG_NAME)-notify-script-telegram/install
+	$(call Package/$(PKG_NAME)-scripts/install/Default,$(1),notify,telegram)
+endef
+
+define Package/$(PKG_NAME)-notify-script-pushbullet/install
+	$(call Package/$(PKG_NAME)-scripts/install/Default,$(1),notify,pushbullet)
+endef
+
+define Package/$(PKG_NAME)-ddns-script-cloudflare/install
+	$(call Package/$(PKG_NAME)-scripts/install/Default,$(1),ddns,cloudflare)
 endef
 
 $(eval $(call BuildPackage,$(PKG_NAME)))
+$(eval $(call BuildPackage,$(PKG_NAME)-notify-script-telegram))
+$(eval $(call BuildPackage,$(PKG_NAME)-notify-script-pushbullet))
+$(eval $(call BuildPackage,$(PKG_NAME)-ddns-script-cloudflare))
