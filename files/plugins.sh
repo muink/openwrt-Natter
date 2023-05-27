@@ -96,5 +96,5 @@ process_ddns() {
 }
 
 
-config_foreach validate_section_notify "$NOTIFY" process_notify || return $?
-config_foreach validate_section_ddns "$DDNS" process_ddns || return $?
+config_foreach validate_section_notify "$NOTIFY" process_notify
+config_foreach validate_section_ddns "$DDNS" process_ddns
