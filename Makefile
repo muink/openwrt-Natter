@@ -119,6 +119,9 @@ define Package/$(PKG_NAME)/install
 
 	$(INSTALL_DIR) $(1)/etc/$(PKG_NAME)/notify
 	$(INSTALL_BIN) ./files/notify/*.sh $(1)/etc/$(PKG_NAME)/notify/
+
+	$(INSTALL_DIR) $(1)/etc/$(PKG_NAME)/ddns
+	$(INSTALL_BIN) ./files/ddns/*.sh $(1)/etc/$(PKG_NAME)/ddns/
 endef
 
 $(eval $(call BuildPackage,$(PKG_NAME)))
