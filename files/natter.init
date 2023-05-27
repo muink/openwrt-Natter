@@ -201,7 +201,7 @@ process_portrule() {
 
 	if [ "$action" == "forward" -a "$mode" == "dnat" -a "$follow_pub_port" == "1" ]; then
 		# write dyn_conf
-		dyn_content="${dyn_content:+$dyn_content, }'$1': { 'id': '$1', 'comment': '$comment', 'loopback': $loopback, 'proto': '$proto', 'bind_ifname': [ '${bind_ifname// /\', \'}' ], 'bind_port': $bind_port, 'server_ip': '$server_ip', 'refresh': $refresh, 'appname': '$appname', 'scheme': '$scheme', 'web_port': $web_port, 'username': '$username', 'password': '$password' }"
+		dyn_content="${dyn_content:+$dyn_content, }{ 'id': '$1', 'comment': '$comment', 'loopback': $loopback, 'proto': '$proto', 'bind_ifname': [ '${bind_ifname// /\', \'}' ], 'bind_port': $bind_port, 'server_ip': '$server_ip', 'refresh': $refresh, 'appname': '$appname', 'scheme': '$scheme', 'web_port': $web_port, 'username': '$username', 'password': '$password' }"
 		server_port=${pub_port:-25252} # not write rule, will be updated by the hook script in the future.
 		[ "$proto" == "both" ] && proto='udp'
 	fi
@@ -414,7 +414,7 @@ reconfigure() {
 	}|")"
 	json_dump > "$CONF"
 	json_cleanup
-	json_load "{ $dyn_content }"
+	json_load "{'dynport':[ $dyn_content ]}"
 	json_dump > "$DYNCONF"
 }
 
@@ -483,13 +483,13 @@ refresh() {
 	local ifname=$(ip -4 -o addr|grep "$open_ip"|cut -f2 -d' '); [ -z "$ifname" ] && return 0
 
 	# read conf
-	local conf="$(jsonfilter -i "$DYNCONF" -e '@.*' | grep "\"bind_port\": ${open_port}" | grep -E "\"proto\": \"${protocol}|both\"" | grep -E "\"bind_ifname\": \[ (.*\"${ifname}\".*|\"none\") \]" | head -1)"
+	local conf="$(jsonfilter -i "$DYNCONF" -qe '@.dynport[*]' | grep "\"bind_port\": ${open_port}" | grep -E "\"proto\": \"${protocol}|both\"" | grep -E "\"bind_ifname\": \[ (.*\"${ifname}\".*|\"none\") \]" | head -1)"
 	[ -z "$conf" ] && return 0
 
 	# read required parameters
 	local vv='id comment server_ip loopback'
 	for _v in $vv; do
-		eval "local $_v=\"\$(jsonfilter -s '$conf' -e '@.$_v')\""
+		eval "local $_v=\"\$(jsonfilter -s '$conf' -qe '@.$_v')\""
 		[ -z "$_v" ] && return 1
 	done
 
@@ -500,7 +500,7 @@ refresh() {
 	# read required parameters
 	local vv='refresh appname scheme web_port username password'
 	for _v in $vv; do
-		eval "local $_v=\"\$(jsonfilter -s '$conf' -e '@.$_v')\""
+		eval "local $_v=\"\$(jsonfilter -s '$conf' -qe '@.$_v')\""
 		[ "$refresh" == "0" ] && return 0
 		[ -z "$_v" ] && return 1
 	done
