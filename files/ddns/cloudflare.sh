@@ -49,7 +49,7 @@ ddns_cloudflare() {
 		-H 'Content-Type: application/json')"
 	[ -z "$records" -o -n "$(echo "$records"|grep -E "\"success\":\s*false")" ] && return 1
 
-	local data id method the_record
+	local data the_record
 
 	if [ "$a_record" == "1" ]; then
 		data="{ \
@@ -58,7 +58,7 @@ ddns_cloudflare() {
 			\"content\": \"${outter_ip}\", \
 			\"ttl\": 1, \
 			\"proxied\": false \
-		}" id= method= the_record=
+		}"
 		the_record="$(jsonfilter -s "$records" -qe '@.result[*]'|grep "\"type\": \"A\""|grep "\"name\": \"${fqdn}\"")"
 		http_request "$data" "$(jsonfilter -s "$the_record" -qe '@.id')"
 	fi
@@ -77,7 +77,7 @@ ddns_cloudflare() {
 			}, \
 			\"ttl\": 1, \
 			\"proxied\": false \
-		}" id= method= the_record=
+		}"
 		the_record="$(jsonfilter -s "$records" -qe '@.result[*]'|grep "\"type\": \"SRV\""|grep "\"name\": \"_${srv_service}._${srv_proto}.${fqdn}\""|grep "\"priority\": ${SRV_PRIORITY:-1}"|grep "\"weight\": ${SRV_WEIGHT:-1}")"
 		http_request "$data" "$(jsonfilter -s "$the_record" -qe '@.id')"
 	fi
