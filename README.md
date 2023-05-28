@@ -13,7 +13,9 @@ Recommended to use it with `luci-app-commands`
 - [x] Refresh the listen port of the BT Client
 - [x] Port update notify script
 - [ ] Domain 302 Redirect update script
-- [x] A/SRV Record update script
+- [x] A Record update script
+- [x] SRV Record update script
+- [ ] SVCB/HTTPS Record update script
 
 ## Releases
 You can find the prebuilt-ipks [here](https://fantastic-packages.github.io/packages/)
