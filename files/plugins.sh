@@ -47,7 +47,10 @@ validate_section_ddns() {
 		'srv_record:bool:0' \
 		'srv_service:string' \
 		'srv_proto:or("udp", "tcp", "tls"):tcp' \
-		'srv_target:hostname'
+		'srv_target:hostname' \
+		'https_record:bool:0' \
+		'https_target:or(".", hostname):.' \
+		'https_svcparams:string:alpn="h2,http/1.1"'
 }
 
 process_notify() {
@@ -70,7 +73,7 @@ process_ddns() {
 	[ "$2" == "0" ] || { >&2 echo "$(basename $0): section $1 validation failed"; return 1; }
 	[ "$enabled" == "0" ] && return 0
 	[ -z "$script" -o -z "$tokens" -o -z "$bind_port" -o -z "$fqdn" ] && return 1
-	[ "$a_record" == "0" -a "$srv_record" == "0" ] && return 1
+	[ "$a_record" == "0" -a "$srv_record" == "0" -a "$https_record" == "0" ] && return 1
 	[ "$srv_record" == "1" -a -z "$srv_service" ] && return 1
 
 	[ "$bind_port" == "$inner_port" ] || return 1
@@ -83,12 +86,15 @@ process_ddns() {
 	done
 	[ -n "$bind_ifname" -a "$bind_ifname" != "$ifname" ] && return 1
 
+	https_svcparams="$(echo "$https_svcparams" | sed -E "s|\b(ipv4hint=)[0-9\.]*|\1${outter_ip}|; s,(\s+port=[0-9]*|\s*$), port=${outter_port},")"
+
 	local path="$ETCPATH/ddns"
 	[ -f "$path/${script}" ] || return 1
 
 	[ -z "$srv_target" ] && srv_target="$fqdn"
 	[ "$a_record" == "1" ] && echo "${fqdn} -> ${outter_ip}"
 	[ "$srv_record" == "1" ] && echo "_${srv_service}._${srv_proto}.${fqdn} -> ${srv_target}:${outter_port}"
+	[ "$https_record" == "1" ] && echo "${fqdn} -> ${https_target} ${https_svcparams}"
 	. "$path/${script}"
 	key_define_refer
 	eval "$tokens"

@@ -12,11 +12,15 @@ key_define_refer() {
 	local srv_service=''
 	local srv_proto=''
 	local srv_target=''
+	local https_record=''
+	local https_target=''
+	local https_svcparams=''
 	# tokens keys
 	TOKEN=''
 	ZONE_ID=''
 	SRV_PRIORITY='' # Optional: 0 - 65535
 	SRV_WEIGHT='' # Optional: 0 - 65535
+	HTTPS_PRIORITY='' # Optional: 1 - 65535 # ServiceMode only
 }
 
 # http_request <data> [record_id]
@@ -79,6 +83,22 @@ ddns_cloudflare() {
 			\"proxied\": false \
 		}"
 		the_record="$(jsonfilter -s "$records" -qe '@.result[*]'|grep "\"type\": \"SRV\""|grep "\"name\": \"_${srv_service}._${srv_proto}.${fqdn}\""|grep "\"priority\": ${SRV_PRIORITY:-1}"|grep "\"weight\": ${SRV_WEIGHT:-1}")"
+		http_request "$data" "$(jsonfilter -s "$the_record" -qe '@.id')"
+	fi
+
+	if [ "$https_record" == "1" ]; then
+		data="{ \
+			\"type\": \"HTTPS\", \
+			\"name\": \"${fqdn}\", \
+			\"data\": { \
+				\"priority\": ${HTTPS_PRIORITY:-1}, \
+				\"target\": \"${srv_target:-.}\", \
+				\"value\": \"${https_svcparams//\"/\\\"}\" \
+			}, \
+			\"ttl\": 1, \
+			\"proxied\": false \
+		}"
+		the_record="$(jsonfilter -s "$records" -qe '@.result[*]'|grep "\"type\": \"HTTPS\""|grep "\"name\": \"${fqdn}\""|grep "\"priority\": ${HTTPS_PRIORITY:-1}")"
 		http_request "$data" "$(jsonfilter -s "$the_record" -qe '@.id')"
 	fi
 }
