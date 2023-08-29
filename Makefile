@@ -8,7 +8,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=natter
 PKG_VERSION=0.9
-PKG_RELEASE:=20230820
+PKG_RELEASE:=20230828
 
 PKG_MAINTAINER:=muink <hukk1996@gmail.com>
 PKG_LICENSE:=GPL-3
@@ -29,7 +29,7 @@ define Package/$(PKG_NAME)
 	CATEGORY:=Network
 	TITLE:=Open Port under FullCone NAT (NAT 1)
 	URL:=https://github.com/MikeWang000000/Natter
-	DEPENDS:=+python3-light +bash +coreutils-base64 +jsonfilter \
+	DEPENDS:=+python3-light +bash +coreutils-base64 +curl +jsonfilter \
 		+$(PKG_NAME)-notify-script-telegram \
 		+$(PKG_NAME)-ddns-script-cloudflare
 	PKGARCH:=all
@@ -125,8 +125,7 @@ define Package/$(PKG_NAME)-scripts/Default
 	CATEGORY:=Network
 	TITLE:=Natter $(1) scripts ($(2))
 	DEPENDS:=+natter
-	PROVIDES:=$(1)-scripts
-	VARIANT:=$(2)
+	PROVIDES:=natter-$(1)-scripts
 	PKGARCH:=all
 endef
 
@@ -142,23 +141,7 @@ endef
 
 define Package/$(PKG_NAME)-ddns-script-cloudflare
 	$(call Package/$(PKG_NAME)-scripts/Default,ddns,cloudflare)
-	DEPENDS+:=+jsonfilter
-endef
-
-define Package/$(PKG_NAME)-scripts/description/Default
-	Natter $(1) scripts ($(2))
-endef
-
-define Package/$(PKG_NAME)-notify-script-telegram/description
-	$(call Package/$(PKG_NAME)-scripts/description/Default,notify,telegram)
-endef
-
-define Package/$(PKG_NAME)-notify-script-pushbullet/description
-	$(call Package/$(PKG_NAME)-scripts/description/Default,notify,pushbullet)
-endef
-
-define Package/$(PKG_NAME)-ddns-script-cloudflare/description
-	$(call Package/$(PKG_NAME)-scripts/description/Default,ddns,cloudflare)
+	DEPENDS+:=
 endef
 
 define Package/$(PKG_NAME)-scripts/install/Default
