@@ -19,6 +19,9 @@ Recommended to use it with `luci-app-commands`
 - [ ] SVCB Record update script
 
 ## Releases
+
+- The better choice: [natmapt][]
+
 You can find the prebuilt-ipks [here](https://fantastic-packages.github.io/packages/)
 
 ## Build
@@ -47,4 +50,5 @@ make package/natter/compile V=99
 ## License
 This project is licensed under the [GPL-3.0](https://www.gnu.org/licenses/gpl-3.0.html)
 
+  [natmapt]: https://github.com/muink/openwrt-natmapt
   [Natter]: https://github.com/MikeWang000000/Natter
